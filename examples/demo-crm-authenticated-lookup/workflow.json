@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "wf_demo_crm_ticket_lookup",
+  "slug": "lookup_support_ticket",
+  "version": "1.1.0",
+  "title": "Look up an authenticated support ticket",
+  "description": "Look up a synthetic support ticket using a locally bound dedicated authentication profile.",
+  "provenance": {
+    "source": "fixture",
+    "recorderVersion": "0.1.0",
+    "createdAt": "2026-10-29T23:00:00Z"
+  },
+  "entrypoint": "http://127.0.0.1:4173/auth/tickets",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "ticket_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 40
+      }
+    },
+    "required": [
+      "ticket_id"
+    ],
+    "additionalProperties": false
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "found": {
+        "type": "boolean"
+      },
+      "status": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "summary": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "found",
+      "status",
+      "summary"
+    ],
+    "additionalProperties": false
+  },
+  "steps": [
+    {
+      "kind": "navigate",
+      "url": "http://127.0.0.1:4173/auth/tickets",
+      "id": "s1",
+      "timeoutMs": 10000
+    },
+    {
+      "kind": "fill",
+      "locator": {
+        "strategy": "label",
+        "value": "Ticket ID"
+      },
+      "value": {
+        "param": "ticket_id"
+      },
+      "id": "s2",
+      "timeoutMs": 10000
+    },
+    {
+      "kind": "click",
+      "locator": {
+        "strategy": "role",
+        "role": "button",
+        "name": "Search"
+      },
+      "id": "s3",
+      "timeoutMs": 10000
+    },
+    {
+      "kind": "waitForVisible",
+      "locator": {
+        "strategy": "testId",
+        "value": "ticket-results"
+      },
+      "id": "s4",
+      "timeoutMs": 10000
+    },
+    {
+      "kind": "extract",
+      "locator": {
+        "strategy": "testId",
+        "value": "ticket-found"
+      },
+      "field": "found",
+      "mode": "isVisible",
+      "allowMissing": true,
+      "id": "s5",
+      "timeoutMs": 10000
+    },
+    {
+      "kind": "extract",
+      "locator": {
+        "strategy": "testId",
+        "value": "ticket-status"
+      },
+      "field": "status",
+      "mode": "textContent",
+      "allowMissing": true,
+      "id": "s6",
+      "timeoutMs": 10000
+    },
+    {
+      "kind": "extract",
+      "locator": {
+        "strategy": "testId",
+        "value": "ticket-summary"
+      },
+      "field": "summary",
+      "mode": "textContent",
+      "allowMissing": true,
+      "id": "s7",
+      "timeoutMs": 10000
+    }
+  ],
+  "policy": {
+    "risk": "read",
+    "allowedOrigins": [
+      "http://127.0.0.1:4173"
+    ],
+    "requiresApproval": false,
+    "maxRuntimeMs": 60000,
+    "maxSteps": 30
+  }
+}

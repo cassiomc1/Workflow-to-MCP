@@ -2,7 +2,11 @@ import http from "node:http";
 import net from "node:net";
 import { randomBytes } from "node:crypto";
 import type { Workflow } from "../../workflow-schema/src/index.js";
-import { authorizeUrl, type InstallationPolicy } from "./index.js";
+import {
+  authorizeUrl,
+  permittedReadRequest,
+  type InstallationPolicy,
+} from "./index.js";
 import { WorkflowError } from "../../shared/src/index.js";
 
 // All browser HTTP(S) traffic goes through this per-run proxy. DNS is resolved and
@@ -16,6 +20,8 @@ export async function createGuardProxy(
   const password = randomBytes(24).toString("hex");
   const auth = `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
   const sockets = new Set<net.Socket>();
+  let stopped = false;
+  let closing: Promise<void> | undefined;
   const server = http.createServer(async (req, res) => {
     if (req.headers["proxy-authorization"] !== auth) {
       res
@@ -29,11 +35,13 @@ export async function createGuardProxy(
         workflow,
         installation,
       );
+      // DNS can finish after cancellation has destroyed the client/listener.
+      if (stopped || res.destroyed || req.socket.destroyed) return;
       if (url.protocol !== "http:")
         throw new WorkflowError("ORIGIN_NOT_ALLOWED");
       if (
         workflow.policy.risk === "read" &&
-        !["GET", "HEAD"].includes(req.method ?? "")
+        !permittedReadRequest(req.method ?? "")
       )
         throw new WorkflowError(
           "PERMISSION_DENIED",
@@ -106,6 +114,10 @@ export async function createGuardProxy(
     }
   });
   server.on("connection", (socket) => {
+    if (stopped) {
+      socket.destroy();
+      return;
+    }
     sockets.add(socket);
     socket.on("close", () => sockets.delete(socket));
   });
@@ -122,19 +134,26 @@ export async function createGuardProxy(
         workflow,
         installation,
       );
+      if (stopped || socket.destroyed) return;
       const upstream = net.connect({
         host: address,
         port: Number(url.port || 443),
+        timeout: 30000,
       });
       sockets.add(upstream);
       upstream.on("close", () => sockets.delete(upstream));
       upstream.on("connect", () => {
+        if (stopped || socket.destroyed) {
+          upstream.destroy();
+          return;
+        }
         socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
         if (head.length) upstream.write(head);
         socket.pipe(upstream);
         upstream.pipe(socket);
       });
       upstream.on("error", () => socket.destroy());
+      upstream.on("timeout", () => upstream.destroy());
       socket.on("error", () => upstream.destroy());
       socket.on("close", () => upstream.destroy());
     } catch (e) {
@@ -153,9 +172,12 @@ export async function createGuardProxy(
   const address = server.address() as net.AddressInfo;
   return {
     config: { server: `http://127.0.0.1:${address.port}`, username, password },
-    async close() {
-      for (const s of sockets) s.destroy();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+    close() {
+      stopped = true;
+      return (closing ??= new Promise<void>((resolve) => {
+        for (const socket of sockets) socket.destroy();
+        server.close(() => resolve());
+      }));
     },
   };
 }

@@ -3,6 +3,7 @@ import { isDeepStrictEqual } from "node:util";
 import { runWorkflow } from "../../runner/src/index.js";
 import type { Registry, StoredWorkflow } from "../../registry/src/index.js";
 import { fail } from "../../shared/src/index.js";
+import { digest } from "../../shared/src/hash.js";
 export const suiteSchema = z.strictObject({
   version: z.literal(1),
   cases: z
@@ -23,18 +24,35 @@ export async function verifyWorkflow(
 ) {
   const suite = suiteSchema.parse(raw),
     report = [];
+  const authentication = registry.authDigest(stored.hash),
+    policy = digest(registry.policy());
+  const assertScope = () => {
+    if (
+      registry.authDigest(stored.hash) !== authentication ||
+      digest(registry.policy()) !== policy
+    )
+      fail(
+        "WORKFLOW_NOT_VERIFIED",
+        "Authentication or policy changed during verification. Run the whole suite again.",
+      );
+  };
   registry.invalidate(stored.hash);
   let browser = "";
   for (const c of suite.cases) {
+    assertScope();
+    const approval = approve ? await approve(c.input) : undefined;
+    assertScope();
     const result = await runWorkflow(registry, stored, c.input, {
       verification: true,
-      approval: approve ? await approve(c.input) : undefined,
+      approval,
     });
+    assertScope();
     if (!isDeepStrictEqual(result.data, c.expected))
       fail("ASSERTION_FAILED", "Verification output differs from the suite.");
     report.push({ runId: result.runId, passed: true, metrics: result.metrics });
     browser = result.browserVersion;
   }
-  registry.attest(stored, suite, browser, report);
+  assertScope();
+  registry.attest(stored, suite, browser, report, authentication, policy);
   return { passed: report.length, hash: stored.hash, report };
 }

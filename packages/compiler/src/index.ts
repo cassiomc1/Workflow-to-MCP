@@ -122,8 +122,7 @@ export async function executeStep(
           if (value.length > 4096)
             fail("OUTPUT_SCHEMA_INVALID", "Output exceeds bounded length.");
           if (secretLike(value)) value = "[REDACTED]";
-          // Outputs are text data; prevent HTML markup being presented as active content.
-          value = value.replace(/[<>]/g, (c) => (c === "<" ? "&lt;" : "&gt;"));
+          // Keep text unchanged until the runner has removed known credentials.
         }
         output[step.field] = value;
       }

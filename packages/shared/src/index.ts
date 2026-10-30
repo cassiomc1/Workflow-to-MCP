@@ -1,4 +1,4 @@
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 export const POLICY_VERSION = "1";
 export class WorkflowError extends Error {
   constructor(
@@ -25,7 +25,8 @@ export function safeError(error: unknown) {
     message: e.safeMessage,
     ...(e.stepId ? { stepId: e.stepId } : {}),
     retryable: false,
-    remediation:
-      "Review the workflow, installation policy, and verification report. Never retry an uncertain write.",
+    remediation: e.code.startsWith("AUTH")
+      ? "Inspect the local authentication profile. Renew login and reverify/publish after replacement, or wait for a busy profile. Never retry an uncertain write."
+      : "Review the workflow, installation policy, and verification report. Never retry an uncertain write.",
   };
 }

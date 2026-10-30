@@ -1,5 +1,6 @@
 # Dependencies and generated builds
 /node_modules/
+/.pnpm-store/
 /dist/
 /artifacts/
 /test-results/
@@ -11,6 +12,9 @@
 *.workflow-state.json
 *.sqlite
 *.sqlite-*
+**/auth/.key
+**/auth/*.enc
+**/auth/*.tmp
 .env
 .env.*
 !.env.example

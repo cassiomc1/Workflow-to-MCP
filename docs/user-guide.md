@@ -1,6 +1,6 @@
 # User guide
 
-The [README](../README.md) is the tested install/record/import/review/verify/publish/MCP walkthrough. Use the synthetic CRM for the first workflow; no accounts or credentials are required.
+The [README](../README.md) is the install/record/import/review/verify/publish/MCP quickstart. Use the synthetic CRM for the first workflow; no real accounts or credentials are required. For private websites, follow the [authentication profile guide](authentication.md); complete login/MFA separately and bind the profile before verification. Check current validation and release limitations in [implementation evidence](implementation-progress.md).
 
 Start recording from the extension toolbar on the intended HTTP(S) tab. Explicitly permit each non-sensitive input before typing. Pause to perform actions you do not want captured; resume explicitly. A new origin or closed tab interrupts the session. The worker reconstructs persisted checkpoints after suspension.
 

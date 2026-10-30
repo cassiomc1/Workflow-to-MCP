@@ -18,7 +18,7 @@ it("migrates a v1 registry and conservatively recovers a run after its owner exi
     expect(child.status).toBe(77);
     // Exercise the actual v1 → v2 schema transition without losing immutable content.
     s.registry.db.exec(
-      "ALTER TABLE runs DROP COLUMN owner_pid; DELETE FROM registry_migrations WHERE version=2;",
+      "ALTER TABLE runs DROP COLUMN owner_pid; ALTER TABLE verifications DROP COLUMN auth_digest; ALTER TABLE approvals DROP COLUMN auth_digest; DROP TABLE auth_bindings; DROP TABLE auth_profiles; DROP TABLE auth_leases; DELETE FROM registry_migrations WHERE version>=2;",
     );
     const recovered = new Registry(s.directory);
     try {
@@ -26,7 +26,7 @@ it("migrates a v1 registry and conservatively recovers a run after its owner exi
         recovered.db
           .prepare("SELECT MAX(version) AS version FROM registry_migrations")
           .get()?.version,
-      ).toBe(2);
+      ).toBe(3);
       expect(recovered.inspectRun("crashed-run").status).toBe(
         "OUTCOME_UNKNOWN",
       );

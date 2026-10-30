@@ -31,6 +31,15 @@ if (!globalState[marker]) {
   chrome.storage.onChanged.addListener(() => {
     void refresh();
   });
+  chrome.runtime.onMessage.addListener((raw, sender, respond) => {
+    const message = raw as { type?: unknown } | null;
+    if (sender.id !== chrome.runtime.id || message?.type !== "sync") return;
+    void refresh().then(
+      () => respond({ ok: true }),
+      () => respond({ ok: false }),
+    );
+    return true;
+  });
   async function send(step: Step, expectedSession: string) {
     const hello = await chrome.runtime.sendMessage({ type: "hello" });
     if (

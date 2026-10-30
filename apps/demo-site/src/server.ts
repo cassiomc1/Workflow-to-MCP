@@ -1,4 +1,5 @@
 import http from "node:http";
+import { createAuthRoutes } from "./auth.js";
 export const tickets: Record<string, { status: string; summary: string }> = {
   "TICKET-1001": { status: "open", summary: "A synthetic example ticket" },
   "TICKET-1002": { status: "closed", summary: "A second synthetic ticket" },
@@ -9,9 +10,11 @@ export async function startDemo(
   options: { variation?: boolean; seed?: number } = {},
 ) {
   const created: Record<string, { status: string; summary: string }> = {};
+  const authentication = createAuthRoutes(tickets);
   let writes = 0,
     pageVersion = 0;
   const server = http.createServer(async (req, res) => {
+    if (await authentication.handle(req, res)) return;
     const u = new URL(req.url ?? "/", "http://127.0.0.1");
     res.setHeader("Cache-Control", "no-store");
     if (u.pathname === "/redirect") {
@@ -69,6 +72,13 @@ export async function startDemo(
       res.end(JSON.stringify({ writes }));
       return;
     }
+    if (u.pathname === "/create-on-load") {
+      res.setHeader("Content-Type", "text/html");
+      res.end(
+        '<p data-testid="page-write-complete" hidden></p><script>fetch("/api/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({summary:"Synthetic page startup write"})}).then(r=>r.json()).then(data=>{const result=document.querySelector("[data-testid=page-write-complete]");result.textContent=data.id;result.hidden=false;});</script>',
+      );
+      return;
+    }
     if (u.pathname === "/api/reset" && req.method === "POST") {
       writes = 0;
       for (const key of Object.keys(created)) delete created[key];
@@ -113,9 +123,9 @@ export async function startDemo(
       return;
     }
     res.setHeader("Content-Type", "text/html");
-    res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Demo CRM · Workflow to MCP</title>${style}<main><small>WORKFLOW TO MCP / SYNTHETIC CRM</small><h1>Find a support ticket.</h1><p>A local fixture with no private accounts or production data.</p><form id="lookup"><label for="ticket">Ticket ID</label><input id="ticket" name="ticket_id" autocomplete="off" placeholder="TICKET-1001"><button>Search</button></form><div id="results" aria-live="polite"></div><nav><a href="/create">Create a synthetic ticket</a> · <a href="/secrets">Privacy fixture</a></nav></main><script>
+    res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Demo CRM · Workflow to MCP</title>${style}<main><small>WORKFLOW TO MCP / SYNTHETIC CRM</small><h1>Find a support ticket.</h1><p>A local fixture with no private accounts or production data.</p><form id="lookup"><label for="ticket">Ticket ID</label><input id="ticket" name="ticket_id" autocomplete="off" placeholder="TICKET-1001"><button>Search</button></form><div id="results" aria-live="polite" hidden></div><nav><a href="/create">Create a synthetic ticket</a> · <a href="/secrets">Privacy fixture</a></nav></main><script>
     const form=document.getElementById('lookup');let seq=${pageVersion++};
-    form.onsubmit=async e=>{e.preventDefault();const id=document.getElementById('ticket').value;const data=await(await fetch('/api/ticket?id='+encodeURIComponent(id))).json();const result=document.getElementById('results');result.replaceChildren();result.removeAttribute('data-testid');const delay=Number(new URLSearchParams(location.search).get('delay')||${options.variation ? (pageVersion * 37 + (options.seed ?? 0)) % 180 : 0});await new Promise(r=>setTimeout(r,delay));const wrapper=document.createElement(seq++%2?'section':'div');wrapper.className='variant-'+seq;if(data){const found=document.createElement('h2');found.dataset.testid='ticket-found';found.textContent='Ticket found';const status=document.createElement('p');status.dataset.testid='ticket-status';status.textContent=data.status;const summary=document.createElement('p');summary.dataset.testid='ticket-summary';summary.textContent=data.summary;wrapper.append(found,status,summary)}else wrapper.textContent='No matching ticket';result.append(wrapper);result.dataset.testid='ticket-results';};
+    form.onsubmit=async e=>{e.preventDefault();const id=document.getElementById('ticket').value;const data=await(await fetch('/api/ticket?id='+encodeURIComponent(id))).json();const result=document.getElementById('results');result.replaceChildren();result.removeAttribute('data-testid');const delay=Number(new URLSearchParams(location.search).get('delay')||${options.variation ? (pageVersion * 37 + (options.seed ?? 0)) % 180 : 0});await new Promise(r=>setTimeout(r,delay));const wrapper=document.createElement(seq++%2?'section':'div');wrapper.className='variant-'+seq;if(data){const found=document.createElement('h2');found.dataset.testid='ticket-found';found.textContent='Ticket found';const status=document.createElement('p');status.dataset.testid='ticket-status';status.textContent=data.status;const summary=document.createElement('p');summary.dataset.testid='ticket-summary';summary.textContent=data.summary;wrapper.append(found,status,summary)}else wrapper.textContent='No matching ticket';result.append(wrapper);result.dataset.testid='ticket-results';result.hidden=false;};
     </script></html>`);
   });
   await new Promise<void>((resolve, reject) => {
@@ -124,6 +134,7 @@ export async function startDemo(
   });
   const address = server.address() as { port: number };
   return {
+    authentication,
     origin: `http://127.0.0.1:${address.port}`,
     get writes() {
       return writes;

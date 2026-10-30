@@ -9,6 +9,7 @@ import {
 } from "../../workflow-schema/src/index.js";
 import { digest } from "../../shared/src/hash.js";
 import { fail, POLICY_VERSION, VERSION } from "../../shared/src/index.js";
+import { authConfigSchema, type AuthProfile } from "../../auth/src/schema.js";
 import {
   installationSchema,
   type InstallationPolicy,
@@ -53,11 +54,25 @@ export class Registry {
         this.db.exec(
           "ALTER TABLE runs ADD COLUMN owner_pid INTEGER NOT NULL DEFAULT 0; INSERT INTO registry_migrations VALUES(2,CURRENT_TIMESTAMP);",
         );
-      } else if (version !== 2)
+      } else if (version !== 2 && version !== 3)
         fail(
           "WORKFLOW_SCHEMA_UNSUPPORTED",
           "Unknown registry migration version.",
         );
+    });
+    this.transaction(() => {
+      const version = this.db
+        .prepare("SELECT MAX(version) AS version FROM registry_migrations")
+        .get()?.version;
+      if (version === 2)
+        this.db.exec(`
+        CREATE TABLE auth_profiles(id TEXT PRIMARY KEY,generation TEXT NOT NULL,config TEXT NOT NULL,expires_at INTEGER NOT NULL,created_at TEXT NOT NULL,status TEXT NOT NULL);
+        CREATE TABLE auth_bindings(hash TEXT PRIMARY KEY REFERENCES versions(hash) ON DELETE CASCADE,profile_id TEXT NOT NULL REFERENCES auth_profiles(id),generation TEXT NOT NULL);
+        CREATE TABLE auth_leases(profile_id TEXT PRIMARY KEY,token TEXT NOT NULL,owner_pid INTEGER NOT NULL);
+        ALTER TABLE verifications ADD COLUMN auth_digest TEXT NOT NULL DEFAULT 'anonymous';
+        ALTER TABLE approvals ADD COLUMN auth_digest TEXT NOT NULL DEFAULT 'anonymous';
+        INSERT INTO registry_migrations VALUES(3,CURRENT_TIMESTAMP);
+      `);
     });
     // Never recover another live CLI/MCP process's run. A dead writer may have
     // committed remotely; retain idempotency keys and prohibit automatic retry.
@@ -205,15 +220,27 @@ export class Registry {
     suite: unknown,
     browser: string,
     report: unknown,
+    authentication = this.authDigest(stored.hash),
+    policy = digest(this.policy()),
   ) {
     this.transaction(() => {
+      if (
+        this.authDigest(stored.hash) !== authentication ||
+        digest(this.policy()) !== policy
+      )
+        fail(
+          "WORKFLOW_NOT_VERIFIED",
+          "Authentication or policy changed during verification.",
+        );
       if (
         this.get(stored.workflow.slug, stored.workflow.version).hash !==
         stored.hash
       )
         fail("WORKFLOW_HASH_MISMATCH");
       this.db
-        .prepare("INSERT OR REPLACE INTO verifications VALUES(?,?,?,?,?,?,?,?)")
+        .prepare(
+          "INSERT OR REPLACE INTO verifications VALUES(?,?,?,?,?,?,?,?,?)",
+        )
         .run(
           stored.hash,
           digest(suite),
@@ -223,6 +250,7 @@ export class Registry {
           digest(this.policy()),
           new Date().toISOString(),
           canonicalize(report),
+          this.authDigest(stored.hash),
         );
       this.db
         .prepare("UPDATE versions SET verified=1 WHERE hash=?")
@@ -247,13 +275,15 @@ export class Registry {
       v.policy !== POLICY_VERSION ||
       v.runner !== RUNNER_BUILD ||
       !(v.browser as string).startsWith(`${BROWSER_BUILD}/`) ||
-      v.policy_hash !== digest(this.policy())
+      v.policy_hash !== digest(this.policy()) ||
+      v.auth_digest !== this.authDigest(stored.hash)
     )
       fail("WORKFLOW_NOT_VERIFIED");
   }
   publish(slug: string, version: string) {
     this.transaction(() => {
       const stored = this.get(slug, version);
+      this.authBinding(stored.hash);
       this.assertVerified(stored);
       this.db.prepare("UPDATE versions SET published=0 WHERE slug=?").run(slug);
       this.db
@@ -291,9 +321,10 @@ export class Registry {
         stored.workflow.policy.risk === "read")
     )
       fail("PERMISSION_DENIED");
+    this.authBinding(stored.hash);
     const nonce = randomUUID();
     this.db
-      .prepare("INSERT INTO approvals VALUES(?,?,?,?,?,NULL,?)")
+      .prepare("INSERT INTO approvals VALUES(?,?,?,?,?,NULL,?,?)")
       .run(
         nonce,
         stored.hash,
@@ -301,6 +332,7 @@ export class Registry {
         actor,
         Date.now() + Math.min(ttlMs, 120000),
         digest(this.policy()),
+        this.authDigest(stored.hash),
       );
     this.audit("approval.granted", { hash: stored.hash });
     return nonce;
@@ -326,7 +358,8 @@ export class Registry {
         a.hash !== stored.hash ||
         a.input_digest !== digest(inputs) ||
         a.actor !== actor ||
-        a.policy_hash !== digest(this.policy())
+        a.policy_hash !== digest(this.policy()) ||
+        a.auth_digest !== this.authDigest(stored.hash)
       )
         fail("APPROVAL_REQUIRED");
       if (Number(a.expires_at) < Date.now()) fail("APPROVAL_EXPIRED");
@@ -341,7 +374,7 @@ export class Registry {
   pendingApproval(stored: StoredWorkflow, inputs: unknown, actor: string) {
     const row = this.db
       .prepare(
-        "SELECT nonce FROM approvals WHERE hash=? AND input_digest=? AND actor=? AND used_at IS NULL AND expires_at>? AND policy_hash=? ORDER BY expires_at LIMIT 1",
+        "SELECT nonce FROM approvals WHERE hash=? AND input_digest=? AND actor=? AND used_at IS NULL AND expires_at>? AND policy_hash=? AND auth_digest=? ORDER BY expires_at LIMIT 1",
       )
       .get(
         stored.hash,
@@ -349,6 +382,7 @@ export class Registry {
         actor,
         Date.now(),
         digest(this.policy()),
+        this.authDigest(stored.hash),
       );
     return row?.nonce as string | undefined;
   }
@@ -396,6 +430,214 @@ export class Registry {
       this.db.prepare("SELECT * FROM runs WHERE id=?").get(id) ??
       fail("WORKFLOW_INVALID", "Unknown run.")
     );
+  }
+  authProfile(id: string, optional = false): AuthProfile | undefined {
+    const row = this.db
+      .prepare("SELECT * FROM auth_profiles WHERE id=?")
+      .get(id);
+    if (!row) {
+      if (optional) return;
+      fail(
+        "AUTH_PROFILE_NOT_FOUND",
+        "Create the profile through the local auth login command.",
+      );
+    }
+    return {
+      config: authConfigSchema.parse(JSON.parse(row.config as string)),
+      generation: row.generation as string,
+      expiresAt: Number(row.expires_at),
+      createdAt: row.created_at as string,
+      status: row.status as AuthProfile["status"],
+    };
+  }
+  authProfiles() {
+    return this.db
+      .prepare("SELECT id FROM auth_profiles ORDER BY id")
+      .all()
+      .map((r) => this.authProfile(r.id as string)!);
+  }
+  assertAuthProfile(profile: AuthProfile) {
+    const current = this.authProfile(profile.config.id)!;
+    if (current.status !== "READY" || current.generation !== profile.generation)
+      fail(
+        "AUTH_PROFILE_REVOKED",
+        "This authentication session was revoked or replaced. Log in and verify again.",
+      );
+    if (current.expiresAt <= Date.now())
+      fail(
+        "AUTH_SESSION_EXPIRED",
+        "The saved authentication session expired. Log in again.",
+      );
+    return current;
+  }
+  authBinding(hash: string): AuthProfile | null {
+    const binding = this.db
+      .prepare("SELECT * FROM auth_bindings WHERE hash=?")
+      .get(hash);
+    if (!binding) return null;
+    const profile = this.authProfile(binding.profile_id as string)!;
+    if (profile.generation !== binding.generation) fail("AUTH_PROFILE_REVOKED");
+    return this.assertAuthProfile(profile);
+  }
+  describeAuthBinding(hash: string) {
+    const binding = this.db
+      .prepare("SELECT profile_id,generation FROM auth_bindings WHERE hash=?")
+      .get(hash);
+    return binding
+      ? {
+          ...binding,
+          status: this.authProfile(binding.profile_id as string)?.status,
+        }
+      : null;
+  }
+  authDigest(hash: string): string {
+    const binding = this.db
+      .prepare("SELECT * FROM auth_bindings WHERE hash=?")
+      .get(hash);
+    if (!binding) return "anonymous";
+    const profile = this.authProfile(binding.profile_id as string)!;
+    return digest({
+      id: profile.config.id,
+      generation: profile.generation,
+      boundGeneration: binding.generation,
+      status: profile.status,
+      config: profile.config,
+    });
+  }
+  private invalidateAuthBinding(hash: string) {
+    this.invalidate(hash);
+    this.db.prepare("DELETE FROM approvals WHERE hash=?").run(hash);
+  }
+  bindAuth(stored: StoredWorkflow, id: string) {
+    this.transaction(() => {
+      const current = this.get(stored.workflow.slug, stored.workflow.version),
+        profile = this.authProfile(id)!;
+      if (!current.trusted || current.hash !== stored.hash)
+        fail("PERMISSION_DENIED");
+      this.assertAuthProfile(profile);
+      if (
+        !current.workflow.policy.allowedOrigins.every((o) =>
+          profile.config.allowedOrigins.includes(o),
+        ) ||
+        !current.workflow.policy.allowedOrigins.includes(
+          new URL(profile.config.check.url).origin,
+        )
+      )
+        fail(
+          "AUTH_ORIGIN_MISMATCH",
+          "Workflow and authentication-check origins must fit the profile scope.",
+        );
+      this.db
+        .prepare("INSERT OR REPLACE INTO auth_bindings VALUES(?,?,?)")
+        .run(current.hash, id, profile.generation);
+      this.invalidateAuthBinding(current.hash);
+      this.audit("auth.bound", { hash: current.hash, profile: id });
+    });
+  }
+  unbindAuth(stored: StoredWorkflow) {
+    this.transaction(() => {
+      this.db
+        .prepare("DELETE FROM auth_bindings WHERE hash=?")
+        .run(stored.hash);
+      this.invalidateAuthBinding(stored.hash);
+      this.audit("auth.unbound", { hash: stored.hash });
+    });
+  }
+  acquireAuthLease(id: string): string {
+    return this.transaction(() => {
+      const row = this.db
+        .prepare("SELECT * FROM auth_leases WHERE profile_id=?")
+        .get(id);
+      if (row) {
+        let alive = true;
+        try {
+          process.kill(Number(row.owner_pid), 0);
+        } catch (e) {
+          alive = (e as NodeJS.ErrnoException).code !== "ESRCH";
+        }
+        if (alive)
+          fail(
+            "AUTH_PROFILE_BUSY",
+            "Another local login or run is using this profile.",
+          );
+        this.db.prepare("DELETE FROM auth_leases WHERE profile_id=?").run(id);
+      }
+      const token = randomUUID();
+      this.db
+        .prepare("INSERT INTO auth_leases VALUES(?,?,?)")
+        .run(id, token, process.pid);
+      return token;
+    });
+  }
+  assertAuthLease(id: string, token: string) {
+    if (
+      !this.db
+        .prepare(
+          "SELECT token FROM auth_leases WHERE profile_id=? AND token=? AND owner_pid=?",
+        )
+        .get(id, token, process.pid)
+    )
+      fail("AUTH_PROFILE_BUSY");
+  }
+  releaseAuthLease(id: string, token: string) {
+    this.db
+      .prepare("DELETE FROM auth_leases WHERE profile_id=? AND token=?")
+      .run(id, token);
+  }
+  saveAuthProfile(
+    profile: AuthProfile,
+    previousGeneration: string | null,
+    lease: string,
+    expectedPolicy?: string,
+  ) {
+    this.transaction(() => {
+      if (expectedPolicy && digest(this.policy()) !== expectedPolicy)
+        fail("PERMISSION_DENIED", "Installation policy changed during login.");
+      this.assertAuthLease(profile.config.id, lease);
+      const previous = this.authProfile(profile.config.id, true);
+      if ((previous?.generation ?? null) !== previousGeneration)
+        fail(
+          "AUTH_PROFILE_REVOKED",
+          "The profile changed during login. Start login again.",
+        );
+      const config = authConfigSchema.parse(profile.config);
+      this.db
+        .prepare("INSERT OR REPLACE INTO auth_profiles VALUES(?,?,?,?,?,?)")
+        .run(
+          config.id,
+          profile.generation,
+          canonicalize(config),
+          profile.expiresAt,
+          profile.createdAt,
+          "READY",
+        );
+      for (const row of this.db
+        .prepare("SELECT hash FROM auth_bindings WHERE profile_id=?")
+        .all(config.id))
+        this.invalidateAuthBinding(row.hash as string);
+      this.db
+        .prepare("UPDATE auth_bindings SET generation=? WHERE profile_id=?")
+        .run(profile.generation, config.id);
+      this.audit("auth.saved", {
+        profile: config.id,
+        generation: profile.generation,
+      });
+    });
+  }
+  revokeAuth(id: string) {
+    this.transaction(() => {
+      this.authProfile(id);
+      this.db
+        .prepare(
+          "UPDATE auth_profiles SET status='REVOKED',generation=? WHERE id=?",
+        )
+        .run(randomUUID(), id);
+      for (const row of this.db
+        .prepare("SELECT hash FROM auth_bindings WHERE profile_id=?")
+        .all(id))
+        this.invalidateAuthBinding(row.hash as string);
+      this.audit("auth.revoked", { profile: id });
+    });
   }
   eraseWorkflow(slug: string) {
     this.transaction(() => {

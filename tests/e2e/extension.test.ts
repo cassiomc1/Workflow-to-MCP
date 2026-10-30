@@ -70,6 +70,12 @@ it("real MV3 UI capture → worker restart → parameterize → download → imp
     await popup
       .getByRole("button", { name: "Choose an input to permit" })
       .click();
+    await eventually(
+      async () =>
+        (await popup.locator("#status").textContent())?.includes(
+          "selecting input",
+        ) ?? false,
+    );
     await page.getByLabel("Ticket ID").click();
     await eventually(async () =>
       worker.evaluate(
@@ -82,11 +88,15 @@ it("real MV3 UI capture → worker restart → parameterize → download → imp
     await page.getByLabel("Ticket ID").press("Enter");
     await page.getByTestId("ticket-results").waitFor();
     await eventually(async () =>
-      worker.evaluate(async () =>
-        (
+      worker.evaluate(async () => {
+        const steps = (
           (await chrome.storage.local.get("session")).session as Session
-        ).steps.some((s: { kind: string }) => s.kind === "fill"),
-      ),
+        ).steps;
+        return (
+          steps.some((s: { kind: string }) => s.kind === "fill") &&
+          steps.some((s: { kind: string }) => s.kind === "press")
+        );
+      }),
     );
     // Terminate the actual MV3 worker through CDP; its next message must reconstruct state.
     const cdp = await context.newCDPSession(page);
@@ -108,6 +118,12 @@ it("real MV3 UI capture → worker restart → parameterize → download → imp
       await popup
         .getByRole("button", { name: "Choose an output element" })
         .click();
+      await eventually(
+        async () =>
+          (await popup.locator("#status").textContent())?.includes(
+            "selecting output",
+          ) ?? false,
+      );
       if (testId === "ticket-results")
         await page
           .getByTestId("ticket-summary")
@@ -238,6 +254,12 @@ it("real MV3 UI capture → worker restart → parameterize → download → imp
     await popup
       .getByRole("button", { name: "Choose an input to permit" })
       .click();
+    await eventually(
+      async () =>
+        (await popup.locator("#status").textContent())?.includes(
+          "selecting input",
+        ) ?? false,
+    );
     await page.getByLabel("Card").click();
     await eventually(
       async () =>

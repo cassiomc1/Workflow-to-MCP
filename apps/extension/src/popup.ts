@@ -5,7 +5,7 @@ async function request(message: unknown) {
   if (!r.ok) throw new Error(r.error);
   const s = r.data as Session | null;
   $("status").textContent = s
-    ? `${s.state} · ${s.steps.length} steps · ${s.safeFields.length} permitted inputs`
+    ? `${s.state} · ${s.steps.length} steps · ${s.safeFields.length} permitted inputs${s.mode === "field" ? " · selecting input" : s.mode === "output" ? " · selecting output" : ""}`
     : "Ready to record";
   $("origin").textContent = s?.origin ?? "No origin permitted";
   $("message").textContent = s?.warnings.join(" · ") ?? "";

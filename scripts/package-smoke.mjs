@@ -2,14 +2,25 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, rm, readFile, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 const exec = promisify(execFile),
   directory = await mkdtemp(join(tmpdir(), "workflow-package-"));
+const runNpm = (args, options) => {
+  if (process.platform !== "win32") return exec("npm", args, options);
+  const npmCli = join(
+    dirname(process.execPath),
+    "node_modules",
+    "npm",
+    "bin",
+    "npm-cli.js",
+  );
+  return exec(process.execPath, [npmCli, ...args], options);
+};
 let demo, client;
 try {
-  const { stdout } = await exec("npm", [
+  const { stdout } = await runNpm([
     "pack",
     "--pack-destination",
     directory,
@@ -26,8 +37,7 @@ try {
       private: true,
     }),
   );
-  await exec(
-    "npm",
+  await runNpm(
     [
       "install",
       "--prefix",
@@ -108,8 +118,7 @@ try {
     if (result.isError || result.structuredContent?.found !== true)
       throw new Error("MCP invocation failed");
   }
-  const sbom = await exec(
-    "npm",
+  const sbom = await runNpm(
     ["sbom", "--prefix", install, "--omit=dev", "--sbom-format", "cyclonedx"],
     { maxBuffer: 5e6 },
   );

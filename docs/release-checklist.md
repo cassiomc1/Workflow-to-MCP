@@ -10,6 +10,8 @@ Before claiming a public release, complete the checks that this local implementa
 - Have a separate reviewer reproduce the README from a clean machine/profile and review the trust boundaries, permissions and write approval behavior.
 - Validate MCP Inspector and at least one interactive third-party host using its actual configuration. The automated official SDK client is validated separately.
 - Review Chrome Web Store privacy/permission requirements before submitting; no store or npm publication has occurred.
-- Keep unsupported authentication/secret providers, frames, popups, files, IPv6 and remote MCP out of release claims. Secret references fail closed; these are documented feature limits.
+- Validate dedicated authentication-profile login/restoration, identity changes, revocation and supported POSIX platforms. Keep unsupported general secret providers, Windows auth profiles, frames, popups, files, IPv6 and remote MCP out of release claims. Secret references fail closed; these are documented feature limits.
 
 Unrelated NNI sources and tooling have been removed. Upstream legacy Headless Recorder tests were not run. No external credentials, private accounts or real production records were used.
+
+Version 0.2.0 authentication/security corrections have source-only review and authored regressions; their current build and runtime checks are pending. Historical local passes above apply to the earlier revision. The 10 MiB authentication-state acceptance cap does not establish a controller-memory bound during browser export.
