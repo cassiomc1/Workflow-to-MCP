@@ -1,0 +1,57 @@
+name: Workflow to MCP
+on:
+  push:
+    paths: ['packages/**', 'apps/**', 'scripts/**', 'tests/**', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '*config*', '.github/workflows/workflow-to-mcp.yml']
+  pull_request:
+    paths: ['packages/**', 'apps/**', 'scripts/**', 'tests/**', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '*config*', '.github/workflows/workflow-to-mcp.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm install --global pnpm@12.16.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test
+      - run: pnpm audit:licenses
+      - run: pnpm audit --audit-level low
+      - run: pnpm package:smoke
+      - if: runner.os != 'Windows'
+        run: pnpm release:artifacts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workflow-evidence-${{ matrix.os }}
+          path: |
+            artifacts/
+            test-results/
+  reliability:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm install --global pnpm@12.16.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install chromium
+      - run: pnpm build
+      - run: pnpm benchmark
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reliability-report
+          path: docs/benchmark-results.json

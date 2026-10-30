@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "wf_demo_crm_create_ticket",
+  "slug": "create_support_ticket",
+  "version": "1.0.0",
+  "title": "Create a synthetic ticket",
+  "description": "Create one synthetic ticket in the approved demo CRM.",
+  "provenance": {
+    "source": "fixture",
+    "recorderVersion": "0.1.0",
+    "createdAt": "2026-10-29T23:00:00Z"
+  },
+  "entrypoint": "http://127.0.0.1:4173/create",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "summary": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    },
+    "required": [
+      "summary"
+    ],
+    "additionalProperties": false
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "created_id": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "created_id"
+    ],
+    "additionalProperties": false
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "kind": "fill",
+      "locator": {
+        "strategy": "label",
+        "value": "Summary"
+      },
+      "value": {
+        "param": "summary"
+      },
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s2",
+      "kind": "click",
+      "locator": {
+        "strategy": "role",
+        "role": "button",
+        "name": "Create ticket"
+      },
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s3",
+      "kind": "waitForVisible",
+      "locator": {
+        "strategy": "testId",
+        "value": "created-id"
+      },
+      "timeoutMs": 10000
+    },
+    {
+      "id": "s4",
+      "kind": "extract",
+      "locator": {
+        "strategy": "testId",
+        "value": "created-id"
+      },
+      "field": "created_id",
+      "mode": "textContent",
+      "allowMissing": false,
+      "timeoutMs": 10000
+    }
+  ],
+  "policy": {
+    "risk": "write",
+    "allowedOrigins": [
+      "http://127.0.0.1:4173"
+    ],
+    "requiresApproval": true,
+    "maxRuntimeMs": 60000,
+    "maxSteps": 30
+  }
+}

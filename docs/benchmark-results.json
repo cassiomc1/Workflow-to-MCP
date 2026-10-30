@@ -1,0 +1,17 @@
+{
+  "count": 100,
+  "successes": 100,
+  "successRate": 1,
+  "failures": [],
+  "medianMs": 393,
+  "p95Ms": 506,
+  "os": "darwin 27.2.0",
+  "cpu": "Apple M2",
+  "node": "v24.21.0",
+  "browserVersion": "156.0.8078.4",
+  "seed": 0,
+  "fixtureHash": "0667b6e6354256144d3f64e7d92559306b8dc972b929e429ded85bf52f2b412c",
+  "sourceTreeDirty": true,
+  "profile": "Alternating two ticket IDs; deterministic 0–179 ms rendering delay and changing wrappers/classes across navigations. Isolated browser startup included.",
+  "commit": "767ed7f22e1e588ce76cbbecb6c6a4a76a309805"
+}

@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "input": {
+        "ticket_id": "TICKET-1001"
+      },
+      "expected": {
+        "found": true,
+        "status": "open",
+        "summary": "A synthetic example ticket"
+      }
+    },
+    {
+      "input": {
+        "ticket_id": "TICKET-1002"
+      },
+      "expected": {
+        "found": true,
+        "status": "closed",
+        "summary": "A second synthetic ticket"
+      }
+    },
+    {
+      "input": {
+        "ticket_id": "MISSING"
+      },
+      "expected": {
+        "found": false,
+        "status": null,
+        "summary": null
+      }
+    }
+  ]
+}

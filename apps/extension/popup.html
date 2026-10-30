@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width"
+  /><title>Workflow to MCP</title
+  ><link rel="stylesheet" href="style.css" />
+  <body class="popup">
+    <header>
+      <span class="eyebrow">LOCAL RECORDER</span>
+      <h1>Workflow to MCP</h1>
+    </header>
+    <main>
+      <p id="status" role="status">Loading…</p>
+      <p id="origin" class="muted"></p>
+      <button id="record">Permit this origin & record</button>
+      <div class="buttons">
+        <button id="pause">Pause</button><button id="resume">Resume</button
+        ><button id="stop">Stop & review</button>
+      </div>
+      <hr />
+      <p>
+        Text fields are private by default. Select each non-sensitive input
+        before entering demo data.
+      </p>
+      <button id="field">Choose an input to permit</button
+      ><button id="output">Choose an output element</button
+      ><button id="review" class="secondary">Open review</button
+      ><button id="erase" class="danger">Delete recording</button>
+      <p id="message" role="alert"></p>
+      <small
+        >No cookies, passwords or telemetry. Drafts expire on the next
+        interaction after 24 hours.</small
+      >
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width"
+  /><title>Review workflow · Workflow to MCP</title
+  ><link rel="stylesheet" href="style.css" />
+  <body>
+    <div class="shell">
+      <header>
+        <span class="eyebrow">WORKFLOW TO MCP / REVIEW</span>
+        <h1>Make your workflow reusable.</h1>
+        <p class="muted">
+          Review every interaction. Replace sample values with typed inputs,
+          then declare only the outputs you need.
+        </p>
+      </header>
+      <main>
+        <div id="notice" role="status"></div>
+        <section class="grid">
+          <label
+            >Tool slug<input
+              id="slug"
+              value="lookup_support_ticket"
+              maxlength="48" /></label
+          ><label>Workflow version<input id="version" value="1.0.0" /></label
+          ><label
+            >Title<input id="title" value="Look up a support ticket" /></label
+          ><label
+            >Reviewed description<input
+              id="description"
+              value="Look up a support ticket on the approved demo CRM." /></label
+          ><label
+            >Risk<select id="risk">
+              <option value="write">Write · approval each run</option>
+              <option value="read">Read · reviewed no side effects</option>
+            </select></label
+          >
+        </section>
+        <section>
+          <h2>Recorded steps</h2>
+          <p>
+            Removing or reordering a step changes the content hash and requires
+            new verification.
+          </p>
+          <ol id="timeline"></ol>
+        </section>
+        <section>
+          <h2>Declared outputs</h2>
+          <p>
+            Use “Choose an output element” while recording, click the page
+            element, then configure its type below. Extraction returns text
+            data; it cannot grant permissions.
+          </p>
+          <div id="outputs"></div>
+        </section>
+        <section>
+          <h2>MCP input contract</h2>
+          <pre id="schema"></pre>
+        </section>
+        <section class="export">
+          <label class="check"
+            ><input id="reviewed" type="checkbox" /> I reviewed the values,
+            output fields, origins and risk. This file contains no private
+            data.</label
+          ><button id="export">Export .workflow.json</button
+          ><a id="download" hidden>Download reviewed workflow</a>
+          <p id="error" role="alert"></p>
+          <small
+            >Export does not publish or execute. The CLI must review, verify and
+            publish this exact content hash.</small
+          >
+        </section>
+      </main>
+    </div>
+    <script src="review.js"></script>
+  </body>
+</html>

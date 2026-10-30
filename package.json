@@ -1,0 +1,61 @@
+{
+  "name": "workflow-to-mcp",
+  "version": "0.1.0",
+  "description": "Local-first, reviewed browser workflows exposed as typed MCP tools",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.21.0 <27"
+  },
+  "packageManager": "pnpm@12.16.1",
+  "bin": {
+    "workflow-to-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "examples/demo-crm-lookup",
+    "examples/demo-crm-create-ticket",
+    "README.md",
+    "PRIVACY.md",
+    "SECURITY.md",
+    "docs/*.md",
+    "docs/legal",
+    "docs/adrs"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint packages apps scripts tests --max-warnings 0",
+    "format": "prettier --write 'packages/**/*.ts' 'apps/**/*.{ts,html,css}' 'scripts/*.mjs' 'tests/**/*.ts' package.json tsconfig.json vitest.config.ts eslint.config.js",
+    "format:check": "prettier --check 'packages/**/*.ts' 'apps/**/*.{ts,html,css}' 'scripts/*.mjs' 'tests/**/*.ts' package.json tsconfig.json vitest.config.ts eslint.config.js",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:security": "vitest run tests/security",
+    "test:e2e": "vitest run tests/e2e",
+    "test:mcp": "vitest run tests/integration/mcp.test.ts",
+    "demo:serve": "node dist/demo.js",
+    "browser:install": "playwright install chromium",
+    "benchmark": "node dist/benchmark.js",
+    "audit:licenses": "node scripts/licenses.mjs",
+    "package:smoke": "node scripts/package-smoke.mjs",
+    "release:artifacts": "node scripts/release.mjs",
+    "test:remote": "node dist/remote-smoke.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "playwright": "1.64.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@types/chrome": "0.3.7",
+    "@types/node": "26.6.6",
+    "esbuild": "0.28.2",
+    "eslint": "10.13.0",
+    "typescript-eslint": "8.72.1",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

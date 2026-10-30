@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "input": {
+        "summary": "Synthetic test ticket"
+      },
+      "expected": {
+        "created_id": "CREATED-1"
+      }
+    }
+  ]
+}
