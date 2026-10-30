@@ -19,7 +19,7 @@ pnpm test
 node dist/cli.js doctor
 ```
 
-Tests need local loopback sockets and sandboxed Chromium. Linux also needs `pnpm exec playwright install --with-deps chromium` and working Chromium sandbox support. Do not disable the browser sandbox. macOS ARM64 is validated locally; Linux/Windows jobs are configured but platform support awaits executed CI results.
+Tests need local loopback sockets and sandboxed Chromium. Linux also needs `pnpm exec playwright install --with-deps chromium` and working Chromium sandbox support. On Ubuntu 24.04 and newer, AppArmor restricts unprivileged user namespaces by default; Playwright's Chromium headless shell needs a narrowly scoped AppArmor profile that grants `userns` to that binary. Keep Chromium sandboxing enabled; see [Ubuntu's AppArmor guidance](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/#apparmor-unprivileged-user-namespace-restrictions). macOS ARM64 is validated locally; Linux/Windows jobs are configured but platform support awaits executed CI results.
 
 For an end-user installation from the locally generated package:
 

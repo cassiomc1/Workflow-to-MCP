@@ -26,6 +26,15 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm exec playwright install --with-deps chromium
+      - name: Permit Chromium sandbox user namespaces under AppArmor
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          browser="$(find "$HOME/.cache/ms-playwright" -type f -name chrome-headless-shell -print -quit)"
+          test -n "$browser"
+          profile=/etc/apparmor.d/workflow-to-mcp-chromium
+          printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile workflow-to-mcp-chromium %s flags=(unconfined) {\n  userns,\n}\n' "$browser" | sudo tee "$profile" >/dev/null
+          sudo apparmor_parser -r "$profile"
       - run: pnpm test
       - run: pnpm audit:licenses
       - run: pnpm audit --audit-level low

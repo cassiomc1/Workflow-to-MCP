@@ -237,9 +237,10 @@ it("keeps a startup-script write uncertain when failure precedes every interacti
         },
       ],
     };
-    const stored = s.registry.import(workflow);
-    s.registry.trust(workflow.slug, stored.hash, workflow.version);
-    const approval = s.registry.approve(stored, input, localActor());
+    const imported = s.registry.import(workflow);
+    s.registry.trust(workflow.slug, imported.hash, workflow.version);
+    const stored = s.registry.get(workflow.slug, workflow.version),
+      approval = s.registry.approve(stored, input, localActor());
     await expect(
       runWorkflow(s.registry, stored, input, {
         verification: true,
