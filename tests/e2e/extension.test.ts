@@ -82,11 +82,15 @@ it("real MV3 UI capture → worker restart → parameterize → download → imp
     await page.getByLabel("Ticket ID").press("Enter");
     await page.getByTestId("ticket-results").waitFor();
     await eventually(async () =>
-      worker.evaluate(async () =>
-        (
+      worker.evaluate(async () => {
+        const steps = (
           (await chrome.storage.local.get("session")).session as Session
-        ).steps.some((s: { kind: string }) => s.kind === "fill"),
-      ),
+        ).steps;
+        return (
+          steps.some((s: { kind: string }) => s.kind === "fill") &&
+          steps.some((s: { kind: string }) => s.kind === "press")
+        );
+      }),
     );
     // Terminate the actual MV3 worker through CDP; its next message must reconstruct state.
     const cdp = await context.newCDPSession(page);

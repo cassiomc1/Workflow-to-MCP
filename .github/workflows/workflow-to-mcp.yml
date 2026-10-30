@@ -1,6 +1,7 @@
 name: Workflow to MCP
 on:
   push:
+    branches: [master]
     paths: ['packages/**', 'apps/**', 'scripts/**', 'tests/**', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '*config*', '.github/workflows/workflow-to-mcp.yml']
   pull_request:
     paths: ['packages/**', 'apps/**', 'scripts/**', 'tests/**', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '*config*', '.github/workflows/workflow-to-mcp.yml']
