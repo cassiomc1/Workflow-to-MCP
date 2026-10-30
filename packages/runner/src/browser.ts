@@ -26,13 +26,9 @@ export async function openControlledBrowser(
     context: BrowserContext | undefined,
     closed: Promise<void> | undefined;
   let monitor: ReturnType<typeof setInterval> | undefined;
-  const proxy = await createGuardProxy(
-    w,
-    policy,
-    (e) => {
-      violation = e;
-    },
-  );
+  const proxy = await createGuardProxy(w, policy, (e) => {
+    violation = e;
+  });
   const close = () =>
     (closed ??= (async () => {
       if (monitor) clearInterval(monitor);
@@ -86,10 +82,7 @@ export async function openControlledBrowser(
           fail("PERMISSION_DENIED", "Request budget exceeded.");
         const request = route.request();
         await authorizeUrl(request.url(), w, policy);
-        if (
-          w.policy.risk === "read" &&
-          !permittedReadRequest(request.method())
-        )
+        if (w.policy.risk === "read" && !permittedReadRequest(request.method()))
           fail(
             "PERMISSION_DENIED",
             "Read workflows cannot send mutating HTTP methods.",

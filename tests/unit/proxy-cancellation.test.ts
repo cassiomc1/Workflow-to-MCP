@@ -38,9 +38,7 @@ it.each(["http", "connect"] as const)(
       () => {},
     );
     const dial =
-      mode === "connect"
-        ? vi.spyOn(net, "connect")
-        : vi.spyOn(http, "request");
+      mode === "connect" ? vi.spyOn(net, "connect") : vi.spyOn(http, "request");
     // A failing regression must never dial a real upstream, even briefly.
     dial.mockImplementation(() => {
       throw new Error("Unexpected upstream allocation after shutdown");

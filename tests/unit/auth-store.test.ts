@@ -170,7 +170,9 @@ it("keeps host-only cookies on their original host while narrowing domain cookie
     },
   };
   expect(
-    scopedState(hostOnly, origins).storage.cookies.map((cookie) => cookie.domain),
+    scopedState(hostOnly, origins).storage.cookies.map(
+      (cookie) => cookie.domain,
+    ),
   ).toEqual(["example.com"]);
   expect(
     scopedState(hostOnly, ["https://app.example.com"]).storage.cookies,

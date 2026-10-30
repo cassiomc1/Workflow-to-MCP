@@ -82,7 +82,11 @@ async function main() {
     process.stdout.write(help);
     return;
   }
-  if(values.profile && !(p[0] === 'auth' && p[1] === 'bind'))fail('PARAMETER_INVALID','Use auth bind to choose a profile; per-run profile overrides are not supported.');
+  if (values.profile && !(p[0] === "auth" && p[1] === "bind"))
+    fail(
+      "PARAMETER_INVALID",
+      "Use auth bind to choose a profile; per-run profile overrides are not supported.",
+    );
   const registry = new Registry(
     values.home ??
       process.env.WORKFLOW_MCP_HOME ??
@@ -359,7 +363,8 @@ async function main() {
           "auth-post-url",
         ].some((key) => values[key as keyof typeof values] !== undefined);
         let parsed: ReturnType<typeof authConfigSchema.safeParse>;
-        if (prior && !changed) parsed = authConfigSchema.safeParse(prior.config);
+        if (prior && !changed)
+          parsed = authConfigSchema.safeParse(prior.config);
         else {
           if (
             ["check-test-id", "check-label", "check-role"].filter((key) =>
