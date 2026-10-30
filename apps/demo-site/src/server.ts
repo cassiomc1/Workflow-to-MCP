@@ -1,4 +1,5 @@
 import http from "node:http";
+import { createAuthRoutes } from "./auth.js";
 export const tickets: Record<string, { status: string; summary: string }> = {
   "TICKET-1001": { status: "open", summary: "A synthetic example ticket" },
   "TICKET-1002": { status: "closed", summary: "A second synthetic ticket" },
@@ -9,9 +10,11 @@ export async function startDemo(
   options: { variation?: boolean; seed?: number } = {},
 ) {
   const created: Record<string, { status: string; summary: string }> = {};
+  const authentication = createAuthRoutes(tickets);
   let writes = 0,
     pageVersion = 0;
   const server = http.createServer(async (req, res) => {
+    if (await authentication.handle(req, res)) return;
     const u = new URL(req.url ?? "/", "http://127.0.0.1");
     res.setHeader("Cache-Control", "no-store");
     if (u.pathname === "/redirect") {
@@ -69,6 +72,13 @@ export async function startDemo(
       res.end(JSON.stringify({ writes }));
       return;
     }
+    if (u.pathname === "/create-on-load") {
+      res.setHeader("Content-Type", "text/html");
+      res.end(
+        '<p data-testid="page-write-complete" hidden></p><script>fetch("/api/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({summary:"Synthetic page startup write"})}).then(r=>r.json()).then(data=>{const result=document.querySelector("[data-testid=page-write-complete]");result.textContent=data.id;result.hidden=false;});</script>',
+      );
+      return;
+    }
     if (u.pathname === "/api/reset" && req.method === "POST") {
       writes = 0;
       for (const key of Object.keys(created)) delete created[key];
@@ -124,6 +134,7 @@ export async function startDemo(
   });
   const address = server.address() as { port: number };
   return {
+    authentication,
     origin: `http://127.0.0.1:${address.port}`,
     get writes() {
       return writes;

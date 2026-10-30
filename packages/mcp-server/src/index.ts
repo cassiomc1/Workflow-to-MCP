@@ -7,6 +7,7 @@ export function createMcpServer(registry: Registry, signal?: AbortSignal) {
   const server = new McpServer({ name: "workflow-to-mcp", version: VERSION });
   for (const stored of registry.published()) {
     const w = stored.workflow;
+    const authentication = registry.authDigest(stored.hash);
     server.registerTool(
       `wf_${w.slug}`,
       {
@@ -26,6 +27,11 @@ export function createMcpServer(registry: Registry, signal?: AbortSignal) {
           const current = registry.get(w.slug, w.version);
           if (!current.published || current.hash !== stored.hash)
             fail("WORKFLOW_NOT_PUBLISHED");
+          if (registry.authDigest(stored.hash) !== authentication)
+            fail(
+              "WORKFLOW_NOT_VERIFIED",
+              "Authentication changed. Restart the MCP server after verification and publication.",
+            );
           const approval = registry.pendingApproval(
             current,
             input,

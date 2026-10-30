@@ -11,6 +11,9 @@
 *.workflow-state.json
 *.sqlite
 *.sqlite-*
+**/auth/.key
+**/auth/*.enc
+**/auth/*.tmp
 .env
 .env.*
 !.env.example

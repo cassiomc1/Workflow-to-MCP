@@ -15,6 +15,8 @@ import { runWorkflow, localActor } from "../../runner/src/index.js";
 import { verifyWorkflow } from "../../testing/src/verify.js";
 import { serve } from "../../mcp-server/src/index.js";
 import { fail, safeError, VERSION } from "../../shared/src/index.js";
+import { beginLogin, revokeProfile } from "../../auth/src/session.js";
+import { authConfigSchema } from "../../auth/src/schema.js";
 const help = `Workflow to MCP ${VERSION}
   doctor
   policy allow --origin https://approved.example [--fixture for exact http://127.0.0.1:PORT]
@@ -26,6 +28,12 @@ const help = `Workflow to MCP ${VERSION}
   workflow publish SLUG --version VERSION
   workflow disable | delete SLUG
   workflow run SLUG --input FILE [--version VERSION] [--idempotency-key KEY]
+  auth login PROFILE --url LOGIN_URL --check-url PRIVATE_URL --check-test-id ID [--ttl-hours 8]
+    [--auth-origin ORIGIN ...]
+    (or --check-label LABEL / --check-role ROLE --check-name NAME)
+  auth list | inspect PROFILE | revoke PROFILE
+  auth bind SLUG --profile PROFILE [--version VERSION]
+  auth unbind SLUG [--version VERSION]
   approval grant SLUG --input FILE [--version VERSION]  (interactive local terminal)
   run inspect RUN_ID
   privacy erase-audit
@@ -58,12 +66,23 @@ async function main() {
       "idempotency-key": { type: "string" },
       stdio: { type: "boolean" },
       help: { type: "boolean" },
+      profile: { type: "string" },
+      url: { type: "string" },
+      "check-url": { type: "string" },
+      "check-test-id": { type: "string" },
+      "check-label": { type: "string" },
+      "check-role": { type: "string" },
+      "check-name": { type: "string" },
+      "ttl-hours": { type: "string" },
+      "auth-origin": { type: "string", multiple: true },
+      "auth-post-url": { type: "string", multiple: true },
     },
   });
   if (!p.length || values.help) {
     process.stdout.write(help);
     return;
   }
+  if(values.profile && !(p[0] === 'auth' && p[1] === 'bind'))fail('PARAMETER_INVALID','Use auth bind to choose a profile; per-run profile overrides are not supported.');
   const registry = new Registry(
     values.home ??
       process.env.WORKFLOW_MCP_HOME ??
@@ -80,6 +99,8 @@ async function main() {
   };
   const approve = async (input: unknown) => {
     const s = get();
+    const profile = registry.authBinding(s.hash),
+      authentication = registry.authDigest(s.hash);
     validateContract(s.workflow.inputSchema, input);
     if (!process.stdin.isTTY || !process.stdout.isTTY)
       fail(
@@ -91,13 +112,18 @@ async function main() {
       output: process.stderr,
     });
     process.stderr.write(
-      `Approve a single write\nWorkflow: ${s.workflow.slug} @ ${s.workflow.version}\nSHA-256: ${s.hash}\nOrigins: ${s.workflow.policy.allowedOrigins.join(", ")}\nInputs: ${JSON.stringify(input)}\nExpires in 60 seconds. No automatic retry.\n`,
+      `Approve a single write\nWorkflow: ${s.workflow.slug} @ ${s.workflow.version}\nSHA-256: ${s.hash}\nOrigins: ${s.workflow.policy.allowedOrigins.join(", ")}\nAuthentication: ${profile ? profile.config.id + " / " + profile.generation : "anonymous"}\nInputs: ${JSON.stringify(input)}\nExpires in 60 seconds. No automatic retry.\n`,
     );
     try {
       const answer = await terminal.question(
         "Type the workflow slug to approve: ",
       );
       if (answer !== s.workflow.slug) fail("APPROVAL_REQUIRED");
+      if (registry.authDigest(s.hash) !== authentication)
+        fail(
+          "AUTH_PROFILE_REVOKED",
+          "Authentication changed while approval was pending. Review the new profile before approving again.",
+        );
       return registry.approve(s, input, localActor());
     } finally {
       terminal.close();
@@ -138,6 +164,8 @@ async function main() {
           extensionBuilt: extension,
           database: integrity,
           grants: registry.policy().grants.length,
+          authProfiles: registry.authProfiles().length,
+          authSupported: process.platform !== "win32",
         });
         if (!ok) process.exitCode = 1;
         return;
@@ -178,9 +206,14 @@ async function main() {
           case "list":
             output(registry.list());
             return;
-          case "inspect":
-            output(get());
+          case "inspect": {
+            const stored = get();
+            output({
+              ...stored,
+              authentication: registry.describeAuthBinding(stored.hash),
+            });
             return;
+          }
           case "trust": {
             const s = get();
             if (!values.hash)
@@ -248,6 +281,172 @@ async function main() {
             fail("PARAMETER_INVALID", "Unknown workflow command.");
         }
         break;
+      }
+      case "auth": {
+        if (p[1] === "list") {
+          output(
+            registry.authProfiles().map((profile) => ({
+              ...profile,
+              status:
+                profile.status === "READY" && profile.expiresAt <= Date.now()
+                  ? "EXPIRED"
+                  : profile.status,
+            })),
+          );
+          return;
+        }
+        if (p[1] === "bind") {
+          if (!values.profile) fail("PARAMETER_INVALID", "Specify --profile.");
+          const stored = get();
+          registry.bindAuth(stored, values.profile);
+          output({
+            bound: true,
+            profile: values.profile,
+            hash: stored.hash,
+            notice:
+              "Verify and publish this revision again; restart MCP after authentication changes.",
+          });
+          return;
+        }
+        if (p[1] === "unbind") {
+          const stored = get();
+          registry.unbindAuth(stored);
+          output({
+            bound: false,
+            hash: stored.hash,
+            notice: "Verify and publish again before anonymous execution.",
+          });
+          return;
+        }
+        if (!p[2])
+          fail("PARAMETER_INVALID", "Authentication profile name required.");
+        if (p[1] === "inspect") {
+          output(registry.authProfile(p[2]));
+          return;
+        }
+        if (p[1] === "revoke") {
+          await revokeProfile(registry, p[2]);
+          output({
+            revoked: true,
+            profile: p[2],
+            notice:
+              "Local encrypted state removed; this does not log out other browsers or revoke website tokens remotely.",
+          });
+          return;
+        }
+        if (p[1] !== "login")
+          fail("PARAMETER_INVALID", "Unknown authentication command.");
+        if (!process.stdin.isTTY || !process.stdout.isTTY)
+          fail(
+            "PERMISSION_DENIED",
+            "Login requires an interactive local terminal and a visible dedicated browser.",
+          );
+        if (values["auth-post-url"]?.length)
+          fail(
+            "AUTH_POST_UNSUPPORTED",
+            "Read workflows and login restoration checks permit GET/HEAD only. Authentication POST exceptions are unavailable.",
+          );
+        const prior = registry.authProfile(p[2], true);
+        const changed = [
+          "url",
+          "check-url",
+          "check-test-id",
+          "check-label",
+          "check-role",
+          "check-name",
+          "ttl-hours",
+          "auth-origin",
+          "auth-post-url",
+        ].some((key) => values[key as keyof typeof values] !== undefined);
+        let parsed: ReturnType<typeof authConfigSchema.safeParse>;
+        if (prior && !changed) parsed = authConfigSchema.safeParse(prior.config);
+        else {
+          if (
+            ["check-test-id", "check-label", "check-role"].filter((key) =>
+              Boolean(values[key as keyof typeof values]),
+            ).length !== 1 ||
+            (values["check-name"] && !values["check-role"])
+          )
+            fail(
+              "PARAMETER_INVALID",
+              "Choose one authenticated marker: --check-test-id, --check-label, or --check-role with --check-name.",
+            );
+          let origin: string;
+          try {
+            origin = new URL(values.url ?? "").origin;
+          } catch {
+            fail("AUTH_PROFILE_INVALID", "Specify a clean HTTP(S) login URL.");
+          }
+          const locator = values["check-test-id"]
+            ? { strategy: "testId", value: values["check-test-id"] }
+            : values["check-label"]
+              ? { strategy: "label", value: values["check-label"] }
+              : {
+                  strategy: "role",
+                  role: values["check-role"],
+                  name: values["check-name"],
+                };
+          parsed = authConfigSchema.safeParse({
+            id: p[2],
+            loginUrl: values.url,
+            allowedOrigins: [
+              ...new Set([origin, ...(values["auth-origin"] ?? [])]),
+            ],
+            check: { url: values["check-url"], locator },
+            ttlHours: Number(values["ttl-hours"] ?? 8),
+            authPostUrls: values["auth-post-url"] ?? [],
+          });
+          if (!parsed.success)
+            fail(
+              "AUTH_PROFILE_INVALID",
+              "Check the profile name, approved origins, login/check URLs, marker and TTL (up to 168 hours).",
+            );
+        }
+        if (!parsed.success)
+          fail("AUTH_PROFILE_INVALID", "Invalid saved authentication profile.");
+        const cancel = new AbortController(),
+          onCancel = () => cancel.abort(),
+          terminal = createInterface({
+            input: process.stdin,
+            output: process.stderr,
+          });
+        terminal.once("SIGINT", onCancel);
+        process.once("SIGINT", onCancel);
+        process.once("SIGTERM", onCancel);
+        let login: Awaited<ReturnType<typeof beginLogin>> | undefined;
+        try {
+          process.stderr.write(
+            `Profile: ${parsed.data.id}\nLogin: ${parsed.data.loginUrl}\nAllowed origins: ${parsed.data.allowedOrigins.join(", ")}\nA separate browser will open. Complete login/MFA there. No credentials are read from your primary Chrome profile.\n`,
+          );
+          login = await beginLogin(registry, parsed.data, {
+            signal: cancel.signal,
+          });
+          login.page.once("close", onCancel);
+          await terminal.question(
+            "After login, press Enter to verify and save the encrypted session (Ctrl+C cancels): ",
+            { signal: cancel.signal },
+          );
+          const profile = await login.save();
+          output({
+            saved: true,
+            ...profile,
+            notice:
+              "Bind this profile to a reviewed workflow, verify and publish it. Renewing login invalidates existing bindings until reverified.",
+          });
+        } catch (e) {
+          if (cancel.signal.aborted)
+            fail(
+              "AUTH_LOGIN_CANCELLED",
+              "Login cancelled. No new session was authorized.",
+            );
+          throw e;
+        } finally {
+          process.removeListener("SIGINT", onCancel);
+          process.removeListener("SIGTERM", onCancel);
+          terminal.close();
+          await login?.close();
+        }
+        return;
       }
       case "approval":
         if (p[1] !== "grant") fail("PARAMETER_INVALID");

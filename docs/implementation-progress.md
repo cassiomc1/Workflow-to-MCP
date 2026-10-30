@@ -159,3 +159,20 @@ Removed source/document data: 47269641 bytes (in addition to redundant dependenc
 The earlier phase entries describe the initial implementation baseline. Their statements about retained NNI files are historical; the current product-only layout is the state described here and in the updated README, provenance audit and ADR.
 
 Cleanup verification: frozen offline reinstall PASS (144 packages, 0 downloads); format/lint/typecheck/build PASS; full real-browser suite **43/43 PASS** on Node26.12.1 (17.63s); isolated installed executable and MCP package smoke PASS. Product-only source and documentation link checks PASS. Temporary release/test outputs are removed after the checks; executable dist and required dependencies remain local and ignored by Git. The cleanup is published with a normal commit; prior repository history is preserved.
+
+
+## Version 0.2.0 — authenticated sessions and source security review
+
+Date: 2026-10-30. Status: IMPLEMENTED LOCALLY; current build/runtime validation PENDING.
+
+Dedicated manual login/MFA, encrypted POSIX authentication snapshots, private-marker restoration proof, exact workflow/profile bindings, generation/TTL guards, leases and authentication-bound approvals/verification/publication are implemented. A synthetic authenticated example and user guide are included. Windows authentication profiles and general secret providers remain unsupported.
+
+A standard source-first review used the Cloudflare security-audit skill at commit c1c8a8c1471069fb0e188eeaff69b8e8db6564a8. It reviewed a frozen dirty snapshot on 7c9222fd386cff932c3b4371346eaed7894f133d, tracked 18 coverage units, and used separate hunters, coverage critics, candidate validators and final-record validators. Five baseline leads remain needs_validation; none was confirmed by runtime reproduction. Two source-coverage units retain advisory/history limitations. The external report/ledger distinguish that baseline from subsequent corrections.
+
+Corrections preserve host-only cookie scope, redact known raw credentials before output encoding, reject read-mode authentication POST exceptions, prevent late upstream allocation after proxy shutdown, bound idle CONNECT lifetime, classify startup/navigation writes conservatively and clean temporary auth files on failed writes. Authentication documentation now reflects actual support and limitations. A separate reviewer approved the correction source and authored tests, without execution.
+
+Regression cases were added for host-only inheritance, angle-containing known credentials, deferred HTTP/CONNECT authorization after shutdown, denied refresh POST exceptions and startup-script write uncertainty/replay. They have NOT been executed against the final changes. Earlier PASS entries above describe their historical revisions and do not validate version 0.2.0 or these corrections.
+
+The skill requires an OS-enforced execution sandbox with aggregate resource limits, isolated loopback and bounded writable scratch. Those controls were not demonstrated on this host, so no target build/test/browser/fixture/dependency execution was performed during the audit. Trusted skill JSON validators and source/whitespace/link checks ran separately. Browser-state export's controller resource effect remains unresolved: the 10 MiB limit constrains accepted persistence after export, not OS memory.
+
+No new dependency was added, no production credentials were used, and no public package/store release or remote deployment was performed. Existing generated executables predate these corrections; build and regressions must run in a suitable sandbox before distributing the current sources. Full platform/host/release gates remain pending.

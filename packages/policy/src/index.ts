@@ -43,12 +43,7 @@ export async function authorizeUrl(
   } catch {
     return fail("ORIGIN_NOT_ALLOWED");
   }
-  if (
-    !["http:", "https:"].includes(u.protocol) ||
-    u.username ||
-    u.password ||
-    u.hash
-  )
+  if (!["http:", "https:"].includes(u.protocol) || u.username || u.password)
     fail("ORIGIN_NOT_ALLOWED");
   if (!w.policy.allowedOrigins.includes(u.origin)) fail("ORIGIN_NOT_ALLOWED");
   const grant = installation.grants.find((g) => g.origin === u.origin);
@@ -72,4 +67,7 @@ export async function authorizeUrl(
   if (!addresses.length || addresses.some((a) => privateAddress(a.address)))
     fail("PRIVATE_NETWORK_BLOCKED");
   return { url: u, address: addresses[0]!.address };
+}
+export function permittedReadRequest(method: string): boolean {
+  return ["GET", "HEAD"].includes(method);
 }

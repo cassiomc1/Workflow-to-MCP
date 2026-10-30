@@ -25,7 +25,7 @@ For an end-user installation from the locally generated package:
 
 ```sh
 pnpm release:artifacts
-npm install --global ./artifacts/workflow-to-mcp-0.1.0.tgz
+npm install --global ./artifacts/workflow-to-mcp-0.2.0.tgz
 workflow-to-mcp doctor
 ```
 
@@ -72,6 +72,10 @@ Your recording must use the suite's input/output names. The suite checks two tic
 
 Every command accepts `--home DIRECTORY` (or `WORKFLOW_MCP_HOME`) and `--json`. State defaults to `~/.workflow-to-mcp`. Import never executes or grants permission. Origin grants and workflow review are separate. Changing installation policy invalidates prior verification/publication. Edits require a new immutable workflow version and re-verification.
 
+## Authenticated websites
+
+Version 0.2.0 adds dedicated authentication profiles on macOS/Linux. Run `auth login NAME` in a local interactive terminal, complete login/MFA in its separate Chromium window, and bind the saved encrypted session with `auth bind WORKFLOW --profile NAME` before verification and publication. It never reads your primary browser profile. See the [complete authentication walkthrough](docs/authentication.md), including the synthetic authenticated CRM, renewal, expiry and revocation. Current authentication/security changes have source review; final build and runtime regressions remain pending as recorded in [implementation evidence](docs/implementation-progress.md).
+
 ## Connect an MCP client
 
 For a host using common `mcpServers` configuration, use absolute paths:
@@ -104,7 +108,7 @@ Failure after a potentially mutating interaction yields `OUTCOME_UNKNOWN`. Inspe
 ## Limits, errors and removal
 
 - Actions: navigate, click, fill, select, check, allowlisted keys, visibility/exact-URL waits, visible/text assertions, explicit text/visibility/count extraction. Locators must match exactly one element. No scripts, shell steps, CSS programs or automatic repair.
-- Frames, popups, uploads/downloads, WebSockets, authenticated profiles and secret storage are unsupported. `secretRef` validates as a future reference but execution explicitly returns `SECRET_NOT_CONFIGURED`. The runner never uses a primary Chrome profile.
+- Frames, popups, uploads/downloads, WebSockets and general credential providers are unsupported. Authentication profiles currently require POSIX owner-only file permissions; Windows rejects that feature explicitly. `secretRef` validates as a future reference but execution explicitly returns `SECRET_NOT_CONFIGURED`. The runner never uses a primary Chrome profile.
 - Recorded IR URLs exclude query, fragment and credentials to avoid URL-secret capture. Runtime app requests may have queries. Remote sites require approved HTTPS origins and public IPv4 answers. IPv6/private networks are blocked; `--fixture` grants only the exact HTTP IPv4 loopback origin/port.
 - Missing browser: run the pinned installation command and use the same `PLAYWRIGHT_BROWSERS_PATH`, if set, during install, verification and MCP serving.
 - `PERMISSION_DENIED`: authorize the origin and trust the reviewed hash separately. `WORKFLOW_NOT_VERIFIED`: reverify after a content/policy/runtime change. `LOCATOR_AMBIGUOUS`: select a unique semantic target; there is no first-match fallback.

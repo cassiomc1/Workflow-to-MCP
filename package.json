@@ -1,6 +1,6 @@
 {
   "name": "workflow-to-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local-first, reviewed browser workflows exposed as typed MCP tools",
   "type": "module",
   "license": "MIT",
@@ -15,6 +15,7 @@
     "dist",
     "examples/demo-crm-lookup",
     "examples/demo-crm-create-ticket",
+    "examples/demo-crm-authenticated-lookup",
     "README.md",
     "PRIVACY.md",
     "SECURITY.md",

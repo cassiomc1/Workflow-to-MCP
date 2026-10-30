@@ -205,3 +205,59 @@ it("a timeout after a real submission is OUTCOME_UNKNOWN and is never retried", 
     await s.close();
   }
 });
+it("keeps a startup-script write uncertain when failure precedes every interaction", async () => {
+  const s = await setup(true);
+  const input = { summary: "Synthetic page startup write" };
+  try {
+    const workflow = {
+      ...s.stored.workflow,
+      version: "1.0.2",
+      entrypoint: s.demo.origin + "/create-on-load",
+      steps: [
+        {
+          id: "s1",
+          kind: "waitForVisible",
+          locator: { strategy: "testId", value: "page-write-complete" },
+          timeoutMs: 2000,
+        },
+        {
+          id: "s2",
+          kind: "waitForVisible",
+          locator: { strategy: "testId", value: "never-ack" },
+          timeoutMs: 100,
+        },
+        {
+          id: "s3",
+          kind: "extract",
+          locator: { strategy: "testId", value: "page-write-complete" },
+          field: "created_id",
+          mode: "textContent",
+          allowMissing: false,
+          timeoutMs: 1000,
+        },
+      ],
+    };
+    const stored = s.registry.import(workflow);
+    s.registry.trust(workflow.slug, stored.hash, workflow.version);
+    const approval = s.registry.approve(stored, input, localActor());
+    await expect(
+      runWorkflow(s.registry, stored, input, {
+        verification: true,
+        approval,
+        idempotencyKey: "startup-write",
+      }),
+    ).rejects.toMatchObject({ code: "OUTCOME_UNKNOWN" });
+    expect(s.demo.writes).toBe(1);
+    expect(
+      s.registry.db
+        .prepare("SELECT status FROM runs WHERE idempotency_key=?")
+        .get("startup-write")?.status,
+    ).toBe("OUTCOME_UNKNOWN");
+    await expect(
+      runWorkflow(s.registry, stored, input, { verification: true, approval }),
+    ).rejects.toMatchObject({ code: "APPROVAL_REQUIRED" });
+    expect(s.demo.writes).toBe(1);
+  } finally {
+    await s.close();
+  }
+});
