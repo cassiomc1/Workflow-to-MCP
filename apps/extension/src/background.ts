@@ -55,6 +55,12 @@ async function inject(tabId: number) {
     target: { tabId, frameIds: [0] },
     files: ["content.js"],
   });
+  const sync = await chrome.tabs.sendMessage(
+    tabId,
+    { type: "sync" },
+    { frameId: 0 },
+  );
+  if (!sync?.ok) throw new Error("CONTENT_SCRIPT_SYNC_FAILED");
 }
 function trustedUI(sender: chrome.runtime.MessageSender): boolean {
   return (
