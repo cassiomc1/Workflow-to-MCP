@@ -30,10 +30,16 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          browser="$(find "$HOME/.cache/ms-playwright" -type f -name chrome-headless-shell -print -quit)"
-          test -n "$browser"
+          chrome="$(find "$HOME/.cache/ms-playwright" -type f -path '*/chrome-linux64/chrome' -print -quit)"
+          headless_shell="$(find "$HOME/.cache/ms-playwright" -type f -name chrome-headless-shell -print -quit)"
+          test -n "$chrome"
+          test -n "$headless_shell"
           profile=/etc/apparmor.d/workflow-to-mcp-chromium
-          printf 'abi <abi/4.0>,\ninclude <tunables/global>\nprofile workflow-to-mcp-chromium %s flags=(unconfined) {\n  userns,\n}\n' "$browser" | sudo tee "$profile" >/dev/null
+          {
+            printf 'abi <abi/4.0>,\ninclude <tunables/global>\n'
+            printf 'profile workflow-to-mcp-chromium %s flags=(unconfined) {\n  userns,\n}\n' "$chrome"
+            printf 'profile workflow-to-mcp-chromium-headless %s flags=(unconfined) {\n  userns,\n}\n' "$headless_shell"
+          } | sudo tee "$profile" >/dev/null
           sudo apparmor_parser -r "$profile"
       - run: pnpm test
       - run: pnpm audit:licenses
