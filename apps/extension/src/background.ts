@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   canonicalize,
-  locatorSchema,
+  legacyLocatorSchema,
   originSchema,
 } from "../../../packages/workflow-schema/src/index.js";
 import { safeCapturedStep } from "../../../packages/recorder-core/src/index.js";
@@ -166,7 +166,10 @@ async function handle(raw: unknown, sender: chrome.runtime.MessageSender) {
   }
   if (kind === "selection") {
     const m = z
-      .strictObject({ type: z.literal("selection"), locator: locatorSchema })
+      .strictObject({
+        type: z.literal("selection"),
+        locator: legacyLocatorSchema,
+      })
       .parse(raw);
     if (session.mode === "none") throw new Error("SELECTION_NOT_REQUESTED");
     const list =

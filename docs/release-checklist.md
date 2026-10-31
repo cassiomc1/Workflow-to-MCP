@@ -15,3 +15,5 @@ Before claiming a public release, complete the checks that this local implementa
 Unrelated NNI sources and tooling have been removed. Upstream legacy Headless Recorder tests were not run. No external credentials, private accounts or real production records were used.
 
 Version 0.2.0 authentication/security corrections have source-only review and authored regressions; their current build and runtime checks are pending. Historical local passes above apply to the earlier revision. The 10 MiB authentication-state acceptance cap does not establish a controller-memory bound during browser export.
+
+Version 0.3.0 adds workflow format 1.1.0. Its scoped locator, conditional action, transform and approval-preview changes have not yet been built or exercised. Rerun typecheck, format, lint, build, full unit/integration/security/browser/MCP checks, package smoke and the local approval walkthrough before calling this release ready. The runner version bump invalidates older verification attestations, so affected workflows need re-verification.

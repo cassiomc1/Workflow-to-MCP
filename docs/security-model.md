@@ -7,15 +7,17 @@ The local OS user is administrator and trust root. Website content, recordings, 
 | DOM → capture | trusted events, explicit field selection, password/OTP/payment/token filters before messages, minimal locators, no page-message bridge |
 | Content → worker | extension ID, approved tab, top frame, document/session/origin, strict bounded schema, timestamp, sequential deduplicated durable events |
 | UI → controls | privileged messages only from extension popup/review, text rendering rather than innerHTML |
-| Import → registry | strict known IR, no code execution, immutable canonical hash, separate installation origins and operator hash review |
+| Import → registry | versioned strict IR, closed declarative interpreter, immutable canonical hash, separate installation origins and operator hash review |
 | Publication → execution | attested content/suite/runner/browser/policy, transactional publication, runtime revalidation |
-| Inputs → browser | strict bounded values before allocation, no parameter interpolation into locator/URL/script/path, unique targets |
+| Inputs → browser | strict bounded values before allocation, no parameter interpolation into locator/URL/script/path, unique scoped targets, typed fixed transformations and per-step conditions |
 | Browser → network | authenticated per-run proxy, validate all DNS answers, pin actual connection IP, exact HTTPS origin/port, explicit loopback fixtures, blocked frames/SW/WebSockets/downloads |
-| Write → app | interactive trusted local approval, exact hash/input/policy/authentication-generation/actor binding, TTL, single use, unknown/destructive risk blocked, no retries |
+| Write → app | interactive trusted local approval with an action/value preview, exact hash/input/policy/authentication-generation/actor binding, TTL, single use, unknown/destructive risk blocked, no retries |
 | App → results | bounded declared fields, schema validation, token-like redaction, HTML-angle escaping, untrusted-data label |
 | Runtime → disk | safe metadata logs, restrictive POSIX modes, no arguments/outputs/raw exception dumps in audit, ephemeral browser context |
 
 Read intent cannot be proved from button labels. GET can mutate state and client-side JS can initiate business actions. The operator must review the application/workflow and explicitly trust the hash. Blocking non-GET/HEAD methods in read flows is defense in depth, not universal semantic side-effect detection.
+
+Workflow 1.1.0 remains declarative: conditionals can skip one bounded step, transforms use a fixed scalar-operation enum, and locators use at most four semantic scopes. Each scope and final target is checked for uniqueness. There are no script, shell, loop, arbitrary expression, CSS-program or index-selection actions. Write approval stays local and single-use; the MCP caller cannot grant it.
 
 The proxy controls HTTP(S) destinations; it is not a general OS egress firewall. Use an independent OS/container network boundary for hostile workloads. Browser sandbox remains enabled. IPv6, WebRTC app workflows, remote MCP and general credential providers are unsupported. Dedicated authentication profiles require POSIX owner-only permissions; no primary Chrome profile is loaded. Dependencies/browser builds require updates and re-verification.
 

@@ -1,15 +1,10 @@
 {
   "manifest_version": 3,
   "name": "Workflow to MCP",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Record and review explicitly permitted browser workflows locally.",
   "minimum_chrome_version": "130",
-  "permissions": [
-    "activeTab",
-    "scripting",
-    "storage",
-    "webNavigation"
-  ],
+  "permissions": ["activeTab", "scripting", "storage", "webNavigation"],
   "background": {
     "service_worker": "background.js"
   },

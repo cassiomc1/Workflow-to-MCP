@@ -8,8 +8,12 @@ import { createInterface } from "node:readline/promises";
 import { chromium } from "playwright";
 import { Registry } from "../../registry/src/index.js";
 import {
+  canonicalize,
   originSchema,
   validateContract,
+  type Condition,
+  type Step,
+  type Workflow,
 } from "../../workflow-schema/src/index.js";
 import { runWorkflow, localActor } from "../../runner/src/index.js";
 import { verifyWorkflow } from "../../testing/src/verify.js";
@@ -40,6 +44,73 @@ const help = `Workflow to MCP ${VERSION}
   serve --stdio
 All commands accept --home DIRECTORY and --json. Imports never grant origin or workflow trust.
 `;
+function terminalJson(value: unknown): string {
+  return (JSON.stringify(value) ?? "undefined").replace(
+    /[\u007f-\u009f\p{Cf}\p{Zl}\p{Zp}]/gu,
+    (character) => `\\u{${character.codePointAt(0)!.toString(16)}}`,
+  );
+}
+function terminalDisplay(value: string): string {
+  return value.replace(
+    /[\u0000-\u001f\u007f-\u009f\p{Cf}\p{Zl}\p{Zp}]/gu,
+    (character) => `\\u{${character.codePointAt(0)!.toString(16)}}`,
+  );
+}
+function conditionSummary(condition: Condition): string {
+  const source = `${condition.source.source}.${condition.source.field}`;
+  if (condition.operator === "equals" || condition.operator === "notEquals")
+    return `${source} ${condition.operator} ${terminalJson(condition.value)}`;
+  return `${source} ${condition.operator}`;
+}
+function approvalSteps(workflow: Workflow, input: unknown): string[] {
+  const values = input as Record<string, unknown>;
+  return workflow.steps.map((step: Step, index) => {
+    let action: string;
+    if (step.kind === "navigate") action = `Navigate to ${step.url}`;
+    else if (step.kind === "waitForURL")
+      action = `Wait for URL ${step.urlPattern}`;
+    else if (step.kind === "transform")
+      action = `Derive ${step.field} with ${step.operation} from ${step.source.source}.${step.source.field}`;
+    else if (step.kind === "extract")
+      action = `Read ${step.mode} from ${canonicalize(step.locator)} into ${step.field}`;
+    else if (step.kind === "waitForState")
+      action = `Wait for ${step.state} on ${canonicalize(step.locator)}`;
+    else if (step.kind === "waitForVisible")
+      action = `Wait for visible ${canonicalize(step.locator)}`;
+    else if (step.kind === "assert")
+      action = `Assert ${step.predicate} on ${canonicalize(step.locator)} equals ${terminalJson(step.expected)}`;
+    else if (step.kind === "click")
+      action = `Click ${canonicalize(step.locator)}`;
+    else if (step.kind === "fill") {
+      const value =
+        typeof step.value === "string"
+          ? step.value
+          : "param" in step.value
+            ? values[step.value.param] === undefined ||
+              values[step.value.param] === null
+              ? "<missing/null; execution will fail>"
+              : String(values[step.value.param])
+            : "secret reference (not configured)";
+      action = `Fill ${canonicalize(step.locator)} with ${terminalJson(value)}`;
+    } else if (step.kind === "select") {
+      const value =
+        typeof step.option === "string"
+          ? step.option
+          : "param" in step.option
+            ? values[step.option.param] === undefined ||
+              values[step.option.param] === null
+              ? "<missing/null; execution will fail>"
+              : String(values[step.option.param])
+            : "secret reference (not configured)";
+      action = `Select ${terminalJson(value)} in ${canonicalize(step.locator)}`;
+    } else if (step.kind === "check")
+      action = `${step.checked ? "Check" : "Uncheck"} ${canonicalize(step.locator)}`;
+    else action = `Press ${step.key} on ${canonicalize(step.locator)}`;
+    if ("when" in step && step.when)
+      action += ` only when ${conditionSummary(step.when)}`;
+    return `  ${index + 1}. ${terminalDisplay(action)}`;
+  });
+}
 async function jsonFile(path: string | undefined) {
   if (!path) fail("PARAMETER_INVALID", "A JSON file is required.");
   const info = await stat(path);
@@ -115,8 +186,25 @@ async function main() {
       input: process.stdin,
       output: process.stderr,
     });
+    const steps = approvalSteps(s.workflow, input),
+      entrypoint = s.workflow.entrypoint;
     process.stderr.write(
-      `Approve a single write\nWorkflow: ${s.workflow.slug} @ ${s.workflow.version}\nSHA-256: ${s.hash}\nOrigins: ${s.workflow.policy.allowedOrigins.join(", ")}\nAuthentication: ${profile ? profile.config.id + " / " + profile.generation : "anonymous"}\nInputs: ${JSON.stringify(input)}\nExpires in 60 seconds. No automatic retry.\n`,
+      [
+        `LOCAL ${s.workflow.policy.risk === "write" ? "WRITE" : "WORKFLOW"} APPROVAL · ONE INVOCATION`,
+        "Review every step and value. If the workflow writes, the site may not offer a way to undo it.",
+        `Workflow: ${s.workflow.slug} @ ${s.workflow.version}`,
+        `Risk: ${s.workflow.policy.risk.toUpperCase()}`,
+        `SHA-256: ${s.hash}`,
+        `Entry point: ${entrypoint}`,
+        `Allowed origins: ${s.workflow.policy.allowedOrigins.join(", ")}`,
+        `Authentication: ${profile ? profile.config.id + " / " + profile.generation : "anonymous"}`,
+        `Exact inputs: ${terminalJson(input)}`,
+        `Planned steps (${steps.length}):`,
+        ...steps,
+        "Approval expires in 60 seconds and is bound to this workflow hash, exact inputs, local user, policy, and authentication profile.",
+        "It is single-use. MCP callers cannot approve it. No automatic retry is performed after uncertain writes.",
+        "",
+      ].join("\n") + "\n",
     );
     try {
       const answer = await terminal.question(
