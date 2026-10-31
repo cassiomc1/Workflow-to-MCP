@@ -4,7 +4,7 @@ import type { Registry } from "../../registry/src/index.js";
 import { type Workflow } from "../../workflow-schema/src/index.js";
 import { authorizeUrl } from "../../policy/src/index.js";
 import { openControlledBrowser } from "../../runner/src/browser.js";
-import { resolveLocator } from "../../compiler/src/index.js";
+import { resolveUniqueLocator } from "../../compiler/src/index.js";
 import { fail, WorkflowError } from "../../shared/src/index.js";
 import {
   authConfigSchema,
@@ -94,9 +94,24 @@ export async function checkAuthentication(page: Page, profile: AuthProfile) {
       "AUTH_CHECK_FAILED",
       "The authentication check endpoint did not succeed.",
     );
-  const locator = resolveLocator(page, profile.config.check.locator);
-  if ((await locator.count()) > 1)
-    fail("AUTH_CHECK_FAILED", "The authenticated marker must be unique.");
+  let locator: Awaited<ReturnType<typeof resolveUniqueLocator>>["l"];
+  try {
+    ({ l: locator } = await resolveUniqueLocator(
+      page,
+      profile.config.check.locator,
+      5000,
+    ));
+  } catch (error) {
+    if (error instanceof WorkflowError && error.code === "LOCATOR_AMBIGUOUS")
+      fail("AUTH_CHECK_FAILED", "The authenticated marker must be unique.");
+    if (error instanceof WorkflowError && error.code === "LOCATOR_NOT_FOUND")
+      fail(
+        "AUTHENTICATION_REQUIRED",
+        "The authenticated marker is missing. Log in again.",
+      );
+    throw error;
+  }
+  if (!locator) fail("AUTH_CHECK_FAILED");
   await locator
     .waitFor({ state: "visible", timeout: 5000 })
     .catch(() =>

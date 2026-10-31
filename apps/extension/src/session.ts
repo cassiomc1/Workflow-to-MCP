@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
-  locatorSchema,
-  stepSchema,
+  legacyLocatorSchema,
+  legacyStepSchema,
   originSchema,
 } from "../../../packages/workflow-schema/src/index.js";
 export const sessionSchema = z.strictObject({
@@ -10,11 +10,11 @@ export const sessionSchema = z.strictObject({
   origin: originSchema,
   state: z.enum(["RECORDING", "PAUSED", "REVIEW", "INTERRUPTED"]),
   createdAt: z.iso.datetime(),
-  steps: z.array(stepSchema).max(100),
+  steps: z.array(legacyStepSchema).max(100),
   eventIds: z.array(z.string().uuid()).max(200),
   sequences: z.record(z.string(), z.number().int().min(0)),
-  safeFields: z.array(locatorSchema).max(30),
-  selections: z.array(locatorSchema).max(30),
+  safeFields: z.array(legacyLocatorSchema).max(30),
+  selections: z.array(legacyLocatorSchema).max(30),
   mode: z.enum(["none", "field", "output"]),
   warnings: z.array(z.string().max(200)).max(30),
 });
@@ -25,7 +25,7 @@ export const captureSchema = z.strictObject({
   eventId: z.string().uuid(),
   sequence: z.number().int().positive(),
   timestamp: z.number().int(),
-  step: stepSchema,
+  step: legacyStepSchema,
 });
 export function validSender(
   session: Session,

@@ -1,8 +1,8 @@
 import {
-  locatorSchema,
-  stepSchema,
-  type LocatorSpec,
-  type Step,
+  legacyLocatorSchema,
+  legacyStepSchema,
+  type BaseLocatorSpec,
+  type LegacyStep,
 } from "../../workflow-schema/src/index.js";
 import { sensitiveName, secretLike } from "../../shared/src/privacy.js";
 export { sensitiveName, secretLike } from "../../shared/src/privacy.js";
@@ -22,7 +22,7 @@ export function sanitizeValue(
     return null;
   return value;
 }
-export function locatorFor(element: Element): LocatorSpec | null {
+export function locatorFor(element: Element): BaseLocatorSpec | null {
   const id = element.getAttribute("data-testid");
   const tag = element.tagName.toLowerCase();
   const role =
@@ -51,7 +51,7 @@ export function locatorFor(element: Element): LocatorSpec | null {
     !secretLike(accessibleName) &&
     !sensitiveName.test(accessibleName)
   ) {
-    const parsed = locatorSchema.safeParse({
+    const parsed = legacyLocatorSchema.safeParse({
       strategy: "role",
       role,
       name: accessibleName,
@@ -80,8 +80,8 @@ export function locatorFor(element: Element): LocatorSpec | null {
     return { strategy: "id", value: element.id };
   return null;
 }
-export function safeCapturedStep(input: unknown): Step | null {
-  const result = stepSchema.safeParse(input);
+export function safeCapturedStep(input: unknown): LegacyStep | null {
+  const result = legacyStepSchema.safeParse(input);
   if (!result.success) return null;
   const s = result.data;
   // Capture messages cannot insert execution-only features or parameter/secret references.

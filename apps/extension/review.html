@@ -41,7 +41,9 @@
           <h2>Recorded steps</h2>
           <p>
             Removing or reordering a step changes the content hash and requires
-            new verification.
+            new verification. Locator actions can be scoped to a named semantic
+            container. After declaring an input, choose a simple condition to
+            skip an action when it does not match.
           </p>
           <ol id="timeline"></ol>
         </section>
@@ -49,10 +51,23 @@
           <h2>Declared outputs</h2>
           <p>
             Use “Choose an output element” while recording, click the page
-            element, then configure its type below. Extraction returns text
-            data; it cannot grant permissions.
+            element, then configure its type below. Add a semantic scope when
+            the same target appears in multiple rows or sections. Waits can
+            target visible, hidden, attached, or detached states.
           </p>
           <div id="outputs"></div>
+        </section>
+        <section>
+          <h2>Typed derived outputs</h2>
+          <p>
+            Convert a declared input or an earlier output with a fixed
+            operation. These transformations have no scripts, loops, or access
+            to the page.
+          </p>
+          <div id="transforms"></div>
+          <button id="add-transform" type="button" class="secondary">
+            Add a transformation
+          </button>
         </section>
         <section>
           <h2>MCP input contract</h2>

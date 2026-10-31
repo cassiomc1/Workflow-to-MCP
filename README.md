@@ -25,7 +25,7 @@ For an end-user installation from the locally generated package:
 
 ```sh
 pnpm release:artifacts
-npm install --global ./artifacts/workflow-to-mcp-0.2.0.tgz
+npm install --global ./artifacts/workflow-to-mcp-0.3.0.tgz
 workflow-to-mcp doctor
 ```
 
@@ -42,7 +42,7 @@ Install its exact browser too: `pnpm browser:install` from source, or `npm exec 
 7. On the fourth output (the results container), press **Wait until visible** and leave its field name empty. This waits for completed results including “No matching ticket.” Select **Read** only after reviewing that the flow has no side effects.
 8. Review every step, sample, origin and output, check the confirmation and export `.workflow.json`. Export does not execute or publish.
 
-The UI supports pause/resume, safe timeline rendering, step removal/reordering, value removal/redaction, typed parameterization, explicit extraction and visible assertions. No keyboard transcript, cookies or passwords are collected. One tab and one origin are supported. Opening `popup.html` directly does not grant `activeTab`; use the toolbar.
+The UI supports pause/resume, safe timeline rendering, step removal/reordering, value removal/redaction, typed parameterization, per-step input conditions, semantic locator scopes, fixed typed transformations and explicit extraction. Waits can target visible, hidden, attached or detached elements. No keyboard transcript, cookies or passwords are collected. Recording stays on one tab and one origin per session; reviewed workflows can declare multiple separately approved origins. Opening `popup.html` directly does not grant `activeTab`; use the toolbar.
 
 ## Import, review, verify, publish
 
@@ -74,7 +74,7 @@ Every command accepts `--home DIRECTORY` (or `WORKFLOW_MCP_HOME`) and `--json`. 
 
 ## Authenticated websites
 
-Version 0.2.0 adds dedicated authentication profiles on macOS/Linux. Run `auth login NAME` in a local interactive terminal, complete login/MFA in its separate Chromium window, and bind the saved encrypted session with `auth bind WORKFLOW --profile NAME` before verification and publication. It never reads your primary browser profile. See the [complete authentication walkthrough](docs/authentication.md), including the synthetic authenticated CRM, renewal, expiry and revocation. Current authentication/security changes have source review; final build and runtime regressions remain pending as recorded in [implementation evidence](docs/implementation-progress.md).
+Version 0.2.0 added dedicated authentication profiles on macOS/Linux. Version 0.3.0 adds the 1.1.0 declarative workflow features above. Run `auth login NAME` in a local interactive terminal, complete login/MFA in its separate Chromium window, and bind the saved encrypted session with `auth bind WORKFLOW --profile NAME` before verification and publication. It never reads your primary browser profile. See the [complete authentication walkthrough](docs/authentication.md), including the synthetic authenticated CRM, renewal, expiry and revocation. The 0.3.0 source changes have not yet passed build/runtime validation; see [implementation evidence](docs/implementation-progress.md).
 
 ## Connect an MCP client
 
@@ -101,17 +101,17 @@ The synthetic write example is in `examples/demo-crm-create-ticket/`. Import and
 node dist/cli.js approval grant create_support_ticket --input examples/demo-crm-create-ticket/input.json
 ```
 
-Review the displayed workflow hash, origins and inputs; type the workflow slug. Invoke the matching MCP tool or `workflow run` within 60 seconds using the exact input. Approval is server-side, bound to the OS principal, policy, content hash and input digest, and consumed once. No `approved` argument exists. Missing/reused/expired approval fails before browser allocation. Unknown/destructive workflows are disabled.
+The local prompt shows the workflow hash, entry point, allowed origins, authentication identity, exact input values and a numbered action summary, including the values to fill. Read the summary and type the workflow slug to approve. This approval covers one exact invocation for 60 seconds; it is bound to the OS principal, policy, content hash, authentication generation and input digest, then consumed once. MCP callers cannot approve, and there is no `approved` argument. Missing/reused/expired approval fails before browser allocation. Unknown/destructive workflows are disabled.
 
 Failure after a potentially mutating interaction yields `OUTCOME_UNKNOWN`. Inspect the application and `run inspect RUN_ID`; no automatic retry occurs. Browser automation is not a rollback-capable database transaction.
 
 ## Limits, errors and removal
 
-- Actions: navigate, click, fill, select, check, allowlisted keys, visibility/exact-URL waits, visible/text assertions, explicit text/visibility/count extraction. Locators must match exactly one element. No scripts, shell steps, CSS programs or automatic repair.
+- Version 1.1.0 adds per-step input/output conditions, bounded semantic locator scopes (one to four unique containers), state waits, and fixed scalar transforms (`trim`, case conversion, digits only, strict number/boolean parsing, and stringification). A false condition skips one step; there are no loops or arbitrary expressions. No locator can match more than one element; normal actions require one match, while hidden/detached waits and `allowMissing` extraction can accept zero. No scripts, shell steps, CSS programs, first-match fallback or automatic repair.
 - Frames, popups, uploads/downloads, WebSockets and general credential providers are unsupported. Authentication profiles currently require POSIX owner-only file permissions; Windows rejects that feature explicitly. `secretRef` validates as a future reference but execution explicitly returns `SECRET_NOT_CONFIGURED`. The runner never uses a primary Chrome profile.
 - Recorded IR URLs exclude query, fragment and credentials to avoid URL-secret capture. Runtime app requests may have queries. Remote sites require approved HTTPS origins and public IPv4 answers. IPv6/private networks are blocked; `--fixture` grants only the exact HTTP IPv4 loopback origin/port.
 - Missing browser: run the pinned installation command and use the same `PLAYWRIGHT_BROWSERS_PATH`, if set, during install, verification and MCP serving.
-- `PERMISSION_DENIED`: authorize the origin and trust the reviewed hash separately. `WORKFLOW_NOT_VERIFIED`: reverify after a content/policy/runtime change. `LOCATOR_AMBIGUOUS`: select a unique semantic target; there is no first-match fallback.
+- `PERMISSION_DENIED`: authorize the origin and trust the reviewed hash separately. `WORKFLOW_NOT_VERIFIED`: reverify after a content/policy/runtime change. `LOCATOR_AMBIGUOUS`: select a unique semantic target; there is no first-match fallback. `TRANSFORM_INPUT_INVALID`: provide a non-null value in the declared source format; parsing does not guess.
 - Use **Delete recording** to clear the draft. Drafts expire on the next extension interaction after 24 hours. `workflow delete SLUG` removes revisions/approvals/runs; `privacy erase-audit` deletes audit entries with SQLite secure deletion/checkpointing.
 - Remove the extension in Chrome and run `npm uninstall --global workflow-to-mcp`. Stop the server before deleting the entire selected application data directory. User-managed downloads/backups remain separate.
 

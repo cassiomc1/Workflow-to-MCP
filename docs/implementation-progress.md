@@ -180,3 +180,11 @@ The first GitHub Actions run for PR #1 stopped during frozen dependency installa
 Final CI run 41128480391 passed all four jobs on PR head `bfbc17d6427a7d8774a87051a29b14deaf5ef92c`: macOS (58 passed, 1 skipped), Ubuntu (58 passed, 1 skipped), Windows (50 passed, 9 authentication-profile tests skipped by platform guards), and reliability benchmark. All platform jobs passed format, lint, typecheck, build, license validation, dependency audit and clean-package smoke; Windows completed the tarball install and real MCP invocations. The final local full test suite also passed 58 tests with 1 skipped, and the build, formatting, lint and typecheck checks passed.
 
 No new dependency was added, no production credentials were used, and no public package/store release or remote deployment was performed. Use the verified sources and CI artifacts rather than pre-existing generated executables, which predate these corrections. The five independent security-audit leads still need validation; interactive MCP host/Inspector review and Chrome Web Store review/publication also remain pending.
+
+## Workflow format 1.1.0 — declarative actions and local write preview
+
+Date: 2026-10-30. Status: IMPLEMENTED IN SOURCE; build/runtime validation pending.
+
+Added a backward-compatible 1.1.0 workflow format while retaining 1.0.0 imports. The review UI can add per-step typed input conditions, fixed scalar transforms, semantic locator scopes, and waits for visible/hidden/attached/detached state. The runner checks uniqueness for each scope and target. Capture messages and persisted recorder sessions remain restricted to legacy recorder actions. Local write confirmation now previews the entry point, origins, identity, exact inputs and planned steps; approval remains exact-input, local, single-use and unavailable to MCP callers.
+
+No formatter, typecheck, build, unit, integration, browser or MCP command was run for this change. Treat 1.1.0 as unverified until those checks and an approval prompt walkthrough are performed.

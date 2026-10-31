@@ -159,6 +159,26 @@ pre {
 .output-row code {
   grid-column: 1/-1;
 }
+.output-row .scope-controls {
+  grid-column: 1/-1;
+}
+.scope-controls,
+.condition-controls,
+.transform-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  margin: 12px 0;
+}
+.scope-controls > label:first-child,
+.condition-controls > label:first-child {
+  grid-column: 1/-1;
+}
+.transform-row {
+  padding: 14px 0;
+  border-bottom: 1px solid #e4e9e2;
+}
 #notice {
   color: #365d51;
   padding: 12px;
@@ -194,7 +214,10 @@ hr {
     padding: 24px 16px;
   }
   .grid,
-  .output-row {
+  .output-row,
+  .scope-controls,
+  .condition-controls,
+  .transform-row {
     grid-template-columns: 1fr;
   }
   h1 {
