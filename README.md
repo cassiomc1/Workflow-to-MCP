@@ -4,6 +4,12 @@ Record a permitted browser task, review it, replace samples with typed inputs, v
 
 The product lives in `apps/`, `packages/`, `tests/` and `scripts/`. See [implementation evidence](docs/implementation-progress.md) for results and incomplete release gates. This is an MVP implementation, not a universally compatible or independently approved public release. Unrelated NNI sources and tooling have been removed; their original history and MIT attribution remain available.
 
+## Architecture
+
+![Workflow to MCP architecture: browser capture and review, local verification and storage, then policy-checked execution through MCP](docs/architecture.svg)
+
+Capture, verification, state, and execution stay local. MCP exposes only published workflow tools over stdio.
+
 ## Install from source
 
 Use Node **24.21.0** (pinned in `.node-version`) or the tested Node 26 runtime, with pnpm **12.16.1**:

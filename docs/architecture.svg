@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1720" height="1090" viewBox="0 0 1720 1090" role="img" aria-labelledby="title description">
+  <title id="title">Workflow to MCP architecture</title>
+  <desc id="description">A local-first architecture from Chrome extension capture and workflow review through a strict declarative format, local CLI, SQLite registry, and isolated verification to policy-checked execution by an MCP stdio server.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fbff" />
+      <stop offset="1" stop-color="#eef3f9" />
+    </linearGradient>
+    <linearGradient id="titleAccent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1e78a4" />
+      <stop offset="1" stop-color="#2bb3a6" />
+    </linearGradient>
+    <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#19334b" flood-opacity="0.08" />
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#66819a" />
+    </marker>
+    <marker id="arrowTeal" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#168f8a" />
+    </marker>
+    <style>
+      text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .title { fill: #10283e; font-size: 38px; font-weight: 750; letter-spacing: -0.7px; }
+      .subtitle { fill: #536b81; font-size: 17px; font-weight: 450; }
+      .section { fill: #587187; font-size: 12px; font-weight: 750; letter-spacing: 2.2px; }
+      .card-title { fill: #122d43; font-size: 20px; font-weight: 700; }
+      .body { fill: #526a7f; font-size: 14px; font-weight: 450; }
+      .small { fill: #688095; font-size: 12px; font-weight: 600; }
+      .pill { fill: #236079; font-size: 11px; font-weight: 700; letter-spacing: 0.2px; }
+      .runtime-title { fill: #122d43; font-size: 18px; font-weight: 700; }
+      .runtime-body { fill: #526a7f; font-size: 13px; font-weight: 450; }
+      .number { fill: #ffffff; font-size: 12px; font-weight: 800; text-anchor: middle; dominant-baseline: central; }
+    </style>
+  </defs>
+
+  <rect width="1720" height="1090" rx="26" fill="url(#background)" />
+  <circle cx="1580" cy="82" r="142" fill="#e4f3f1" opacity="0.72" />
+  <circle cx="1632" cy="42" r="80" fill="#e4edf8" opacity="0.72" />
+  <rect x="68" y="46" width="7" height="58" rx="3.5" fill="url(#titleAccent)" />
+  <text x="94" y="76" class="title">Workflow to MCP</text>
+  <text x="96" y="106" class="subtitle">Architecture · local-first recording, verification, and controlled execution</text>
+  <g transform="translate(1220 62)">
+    <rect width="130" height="30" rx="15" fill="#e4f3f1" />
+    <text x="65" y="20" class="pill" text-anchor="middle">LOCAL-FIRST</text>
+    <rect x="142" width="122" height="30" rx="15" fill="#e9eff8" />
+    <text x="203" y="20" class="pill" text-anchor="middle">CLOSED IR</text>
+    <rect x="276" width="206" height="30" rx="15" fill="#fff0df" />
+    <text x="379" y="20" fill="#925518" font-size="11" font-weight="750" letter-spacing="0.2" text-anchor="middle">LOCAL WRITE APPROVAL</text>
+  </g>
+
+  <text x="68" y="164" class="section">AUTHOR, REVIEW &amp; VERIFY</text>
+
+  <!-- Design-time flow connectors -->
+  <path d="M 404 323 H 450" stroke="#66819a" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+  <path d="M 790 323 H 836" stroke="#66819a" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+  <path d="M 1185 323 H 1231" stroke="#66819a" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+
+  <!-- Capture and review -->
+  <g filter="url(#cardShadow)">
+    <rect x="68" y="190" width="336" height="266" rx="18" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="68" y="190" width="336" height="5" rx="2.5" fill="#3685a5" />
+  </g>
+  <circle cx="98" cy="228" r="16" fill="#3685a5" />
+  <text x="98" y="228" class="number">01</text>
+  <text x="124" y="232" class="small">BROWSER AUTHORING</text>
+  <text x="92" y="274" class="card-title">Chrome MV3 extension</text>
+  <text x="92" y="308" class="body">Toolbar capture with a temporary</text>
+  <text x="92" y="329" class="body">activeTab grant</text>
+  <text x="92" y="365" class="body">Recorder sanitizes events; worker checks</text>
+  <text x="92" y="386" class="body">the tab, frame, origin, and session</text>
+  <rect x="92" y="412" width="246" height="25" rx="12.5" fill="#eaf4f8" />
+  <text x="215" y="429" class="pill" text-anchor="middle">ONE ORIGIN PER RECORDING SESSION</text>
+
+  <!-- Strict workflow format -->
+  <g filter="url(#cardShadow)">
+    <rect x="454" y="190" width="336" height="266" rx="18" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="454" y="190" width="336" height="5" rx="2.5" fill="#5977b7" />
+  </g>
+  <circle cx="484" cy="228" r="16" fill="#5977b7" />
+  <text x="484" y="228" class="number">02</text>
+  <text x="510" y="232" class="small">PORTABLE DECLARATION</text>
+  <text x="478" y="274" class="card-title">Workflow IR · schema 1.1</text>
+  <text x="478" y="308" class="body">Strict bounded Zod schema and</text>
+  <text x="478" y="329" class="body">JSON Schema 2020-12</text>
+  <text x="478" y="365" class="body">Typed inputs, outputs, conditions,</text>
+  <text x="478" y="386" class="body">transforms, waits, and scoped locators</text>
+  <rect x="478" y="412" width="224" height="25" rx="12.5" fill="#edf0f9" />
+  <text x="590" y="429" class="pill" text-anchor="middle">NO SCRIPTS OR GENERATED CODE</text>
+
+  <!-- CLI and policy -->
+  <g filter="url(#cardShadow)">
+    <rect x="840" y="190" width="345" height="266" rx="18" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="840" y="190" width="345" height="5" rx="2.5" fill="#d49347" />
+  </g>
+  <circle cx="870" cy="228" r="16" fill="#c5863c" />
+  <text x="870" y="228" class="number">03</text>
+  <text x="896" y="232" class="small">LOCAL CONTROL PLANE</text>
+  <text x="864" y="274" class="card-title">CLI + review policy</text>
+  <text x="864" y="308" class="body">Import · inspect · trust · verify · publish</text>
+  <text x="864" y="344" class="body">Origin grants stay separate from</text>
+  <text x="864" y="365" class="body">review of the exact workflow hash</text>
+  <text x="864" y="401" class="body">Writes require an exact local approval</text>
+  <rect x="864" y="420" width="207" height="23" rx="11.5" fill="#fff2e1" />
+  <text x="967" y="436" fill="#925518" font-size="11" font-weight="750" text-anchor="middle">NEVER APPROVED BY MCP</text>
+
+  <!-- Compiler and verification -->
+  <g filter="url(#cardShadow)">
+    <rect x="1235" y="190" width="417" height="266" rx="18" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="1235" y="190" width="417" height="5" rx="2.5" fill="#168f8a" />
+  </g>
+  <circle cx="1265" cy="228" r="16" fill="#168f8a" />
+  <text x="1265" y="228" class="number">04</text>
+  <text x="1291" y="232" class="small">DETERMINISTIC VERIFICATION</text>
+  <text x="1259" y="274" class="card-title">Compiler + isolated browser</text>
+  <text x="1259" y="308" class="body">Closed interpreter · isolated Playwright / Chromium</text>
+  <text x="1259" y="344" class="body">Checks uniqueness at every locator scope and target</text>
+  <text x="1259" y="380" class="body">Attestation binds workflow hash, suite, runtime,</text>
+  <text x="1259" y="401" class="body">browser build, policy, and authentication digest</text>
+  <rect x="1259" y="420" width="203" height="23" rx="11.5" fill="#e5f4f2" />
+  <text x="1360" y="436" class="pill" text-anchor="middle">FIXED OPERATIONS ONLY</text>
+
+  <text x="68" y="500" class="section">LOCAL TRUST STATE</text>
+
+  <!-- Local persistence and authentication state -->
+  <path d="M 1012 456 V 516" stroke="#66819a" stroke-width="2" fill="none" marker-end="url(#arrow)" />
+  <path d="M 1444 456 V 486 H 1068 V 516" stroke="#168f8a" stroke-width="2" fill="none" marker-end="url(#arrowTeal)" />
+  <text x="1210" y="480" class="small" text-anchor="middle">verification evidence</text>
+
+  <g filter="url(#cardShadow)">
+    <rect x="68" y="520" width="1052" height="146" rx="18" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="68" y="520" width="7" height="146" rx="3.5" fill="#315d83" />
+  </g>
+  <text x="98" y="557" class="small">PERSISTENCE &amp; POLICY</text>
+  <text x="98" y="589" class="card-title">SQLite registry</text>
+  <text x="98" y="622" class="body">Immutable workflow revisions · origin grants · policy state · verification and publication records · single-use approvals · audit trail</text>
+  <text x="98" y="647" class="small">The server loads exact published revisions and rechecks current policy on each call.</text>
+
+  <g filter="url(#cardShadow)">
+    <rect x="1160" y="520" width="492" height="146" rx="18" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="1160" y="520" width="7" height="146" rx="3.5" fill="#7a69a9" />
+  </g>
+  <text x="1188" y="557" class="small">SEPARATE AUTHENTICATION STATE</text>
+  <text x="1188" y="589" class="card-title">Encrypted profile vault</text>
+  <text x="1188" y="617" class="body">Exact workflow binding · generation and TTL checks</text>
+  <text x="1188" y="640" class="body">Dedicated browser context; never the primary Chrome profile</text>
+
+  <!-- Runtime connectors behind the cards -->
+  <path d="M 540 666 V 710 H 483 V 754" stroke="#66819a" stroke-width="2" stroke-dasharray="6 6" fill="none" marker-end="url(#arrow)" />
+  <path d="M 1454 666 V 754" stroke="#7a69a9" stroke-width="2" stroke-dasharray="6 6" fill="none" marker-end="url(#arrow)" />
+
+  <text x="68" y="716" class="section">RUNTIME · EVERY INVOCATION</text>
+
+  <!-- Runtime flow connectors -->
+  <path d="M 300 848 H 339" stroke="#66819a" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+  <path d="M 625 848 H 670" stroke="#66819a" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+  <path d="M 935 848 H 980" stroke="#66819a" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+  <path d="M 1210 848 H 1255" stroke="#66819a" stroke-width="2.5" fill="none" marker-end="url(#arrow)" />
+
+  <!-- Runtime cards -->
+  <g filter="url(#cardShadow)">
+    <rect x="68" y="754" width="232" height="184" rx="17" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="68" y="754" width="232" height="5" rx="2.5" fill="#3685a5" />
+  </g>
+  <text x="92" y="797" class="runtime-title">MCP client</text>
+  <text x="92" y="830" class="runtime-body">JSON-RPC over stdio</text>
+  <text x="92" y="853" class="runtime-body">Calls published tools</text>
+  <rect x="92" y="883" width="129" height="25" rx="12.5" fill="#eaf4f8" />
+  <text x="156" y="900" class="pill" text-anchor="middle">LOCAL PROCESS</text>
+
+  <g filter="url(#cardShadow)">
+    <rect x="340" y="754" width="285" height="184" rx="17" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="340" y="754" width="285" height="5" rx="2.5" fill="#5977b7" />
+  </g>
+  <text x="364" y="797" class="runtime-title">MCP stdio server</text>
+  <text x="364" y="830" class="runtime-body">Registers exact published versions</text>
+  <text x="364" y="853" class="runtime-body">No HTTP listener or admin tools</text>
+  <text x="364" y="888" class="small">Registry and live policy rechecked</text>
+
+  <g filter="url(#cardShadow)">
+    <rect x="670" y="754" width="265" height="184" rx="17" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="670" y="754" width="265" height="5" rx="2.5" fill="#d49347" />
+  </g>
+  <text x="694" y="797" class="runtime-title">Policy + approval gate</text>
+  <text x="694" y="830" class="runtime-body">Validates inputs before allocation</text>
+  <text x="694" y="853" class="runtime-body">Rechecks origin, hash, and auth</text>
+  <text x="694" y="888" fill="#925518" font-size="12" font-weight="700">Writes need exact local approval</text>
+
+  <g filter="url(#cardShadow)">
+    <rect x="980" y="754" width="230" height="184" rx="17" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="980" y="754" width="230" height="5" rx="2.5" fill="#168f8a" />
+  </g>
+  <text x="1004" y="797" class="runtime-title">Workflow runner</text>
+  <text x="1004" y="830" class="runtime-body">Closed IR actions only</text>
+  <text x="1004" y="853" class="runtime-body">Scopes auth to this run</text>
+  <text x="1004" y="888" class="small">Cleans up browser resources</text>
+
+  <g filter="url(#cardShadow)">
+    <rect x="1255" y="754" width="397" height="184" rx="17" fill="#ffffff" stroke="#dce6ef" />
+    <rect x="1255" y="754" width="397" height="5" rx="2.5" fill="#315d83" />
+  </g>
+  <text x="1279" y="797" class="runtime-title">Sandboxed browser + egress guard</text>
+  <text x="1279" y="830" class="runtime-body">Per-run proxy checks DNS, origins, and redirects</text>
+  <text x="1279" y="853" class="runtime-body">Browser requests are checked before forwarding</text>
+  <text x="1279" y="876" class="runtime-body">Blocks frames, service workers, downloads,</text>
+  <text x="1279" y="899" class="runtime-body">and WebSockets</text>
+  <text x="1279" y="923" class="small">Returns declared, schema-validated outputs</text>
+
+  <path d="M 1454 938 V 974" stroke="#168f8a" stroke-width="2" fill="none" marker-end="url(#arrowTeal)" />
+  <rect x="68" y="976" width="1584" height="68" rx="16" fill="#e4f3f1" stroke="#cde8e3" />
+  <text x="96" y="1005" fill="#168f8a" font-size="11" font-weight="800" letter-spacing="1.2">RETURNED RESULT</text>
+  <text x="96" y="1028" fill="#285a60" font-size="14" font-weight="600">Bounded declared outputs · schema-validated · marked as untrusted application data · returned to the MCP client</text>
+
+  <text x="68" y="1072" class="small">All components run locally. Browser traffic is origin-guarded. MCP transport is stdio only.</text>
+</svg>
