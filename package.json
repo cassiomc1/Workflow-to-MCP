@@ -20,6 +20,7 @@
     "PRIVACY.md",
     "SECURITY.md",
     "docs/*.md",
+    "docs/architecture.svg",
     "docs/legal",
     "docs/adrs"
   ],

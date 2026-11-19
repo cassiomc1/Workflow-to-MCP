@@ -51,7 +51,6 @@ const scopes = new Map<string, ScopeDraft>();
 const conditions = new Map<string, ConditionDraft>();
 const transforms: TransformDraft[] = [];
 const outputs: OutputDraft[] = [];
-const outputActions = new Map<string, OutputDraft>();
 const containerRoles = [
   "region",
   "row",
@@ -102,6 +101,7 @@ function createScopeControls(
   const update = () =>
     onChange({ role: role.value, name: nameField.value.trim() });
   role.onchange = update;
+  nameField.oninput = update;
   nameField.onchange = update;
   wrapper.append(labeled("Scope to a semantic container", role), nameField);
   return { wrapper, role, nameField };
@@ -110,12 +110,16 @@ function effectiveLocator(
   locator: LocatorSpec,
   scope: ScopeDraft | undefined,
 ): LocatorSpec {
-  if (!scope?.name) return locator;
-  if (!scope.role) throw new Error("Choose a container role for the scope.");
+  const role = scope?.role.trim() ?? "",
+    scopeName = scope?.name.trim() ?? "";
+  if (!role && !scopeName) return locator;
+  if (!role) throw new Error("Choose a container role for the scope.");
+  if (!scopeName)
+    throw new Error("Enter the container accessible name for the scope.");
   const container: BaseLocatorSpec = {
     strategy: "role",
-    role: scope.role as LocatorRole,
-    name: scope.name,
+    role: role as LocatorRole,
+    name: scopeName,
   };
   if (locator.strategy === "within") {
     if (locator.scopes.length >= 4)
@@ -148,6 +152,24 @@ function contract(): Contract {
 function schemaPreview() {
   $("schema").textContent = JSON.stringify(contract(), null, 2);
 }
+function operatorsForType(type: Parameter["type"]) {
+  if (type === "boolean") return ["isTrue", "isFalse", "equals", "notEquals"];
+  if (type === "string")
+    return ["equals", "notEquals", "isEmpty", "isNotEmpty"];
+  return ["equals", "notEquals"];
+}
+function defaultCondition(parameter: Parameter): ConditionDraft {
+  const operator = operatorsForType(parameter.type)[0]!;
+  return {
+    field: parameter.name,
+    operator,
+    value:
+      parameter.type === "boolean" &&
+      (operator === "equals" || operator === "notEquals")
+        ? "true"
+        : "",
+  };
+}
 function conditionEditor(step: Step, row: HTMLLIElement) {
   if (
     step.kind === "navigate" ||
@@ -162,104 +184,98 @@ function conditionEditor(step: Step, row: HTMLLIElement) {
         .map((p) => [p.name, p] as const),
     ).values(),
   ];
-  const current = conditions.get(step.id),
-    field = document.createElement("select");
+  const current = conditions.get(step.id);
+  if (current && !params.some((p) => p.name === current.field))
+    conditions.delete(step.id);
+  const field = document.createElement("select");
   field.setAttribute("aria-label", `Condition input for ${step.id}`);
   field.add(new Option("Always run", ""));
   for (const p of params) field.add(new Option(`Only if ${p.name}`, p.name));
-  field.value = current?.field ?? "";
+  field.value = conditions.get(step.id)?.field ?? "";
   const editor = document.createElement("div");
   editor.className = "condition-controls";
   editor.append(labeled("Run condition", field));
-  const refresh = () => {
+  field.onchange = () => {
     const selected = params.find((p) => p.name === field.value);
-    if (!selected) {
-      conditions.delete(step.id);
-      render();
-      return;
-    }
-    const operators =
-      selected.type === "boolean"
-        ? ["isTrue", "isFalse", "equals", "notEquals"]
-        : selected.type === "string"
-          ? ["equals", "notEquals", "isEmpty", "isNotEmpty"]
-          : ["equals", "notEquals"];
-    const previous = conditions.get(step.id),
-      operator = document.createElement("select");
-    operator.setAttribute("aria-label", `Condition operator for ${step.id}`);
-    for (const item of operators) operator.add(new Option(item, item));
-    operator.value = operators.includes(previous?.operator ?? "")
-      ? previous!.operator
-      : operators[0]!;
-    let value: HTMLInputElement | HTMLSelectElement;
-    if (
-      selected.type === "boolean" &&
-      ["equals", "notEquals"].includes(operator.value)
-    ) {
-      const select = document.createElement("select");
-      select.add(new Option("true", "true"));
-      select.add(new Option("false", "false"));
-      select.value =
-        selected.type === "boolean" && previous?.value !== "false"
+    if (!selected) conditions.delete(step.id);
+    else conditions.set(step.id, defaultCondition(selected));
+    render();
+  };
+  const selected = params.find(
+    (p) => p.name === conditions.get(step.id)?.field,
+  );
+  if (selected) {
+    const active = conditions.get(step.id)!,
+      operators = operatorsForType(selected.type),
+      op = operators.includes(active.operator)
+        ? active.operator
+        : operators[0]!,
+      needsValue = op === "equals" || op === "notEquals",
+      valStr = needsValue
+        ? selected.type === "boolean" &&
+          active.value !== "false" &&
+          active.value !== "true"
           ? "true"
-          : (previous?.value ?? "true");
-      value = select;
-    } else {
-      const field = document.createElement("input");
-      field.type = selected.type === "string" ? "text" : "number";
-      if (selected.type === "string") field.maxLength = 4096;
-      field.value = previous?.value ?? "";
-      value = field;
-    }
-    value.setAttribute("aria-label", `Condition value for ${step.id}`);
-    const save = () => {
-      const needsValue = ["equals", "notEquals"].includes(operator.value);
+          : active.value
+        : "";
+    if (active.operator !== op || active.value !== valStr)
       conditions.set(step.id, {
         field: selected.name,
-        operator: operator.value,
-        value: needsValue
-          ? selected.type === "boolean" && !value.value
-            ? "true"
-            : value.value
-          : "",
+        operator: op,
+        value: valStr,
       });
-    };
-    operator.onchange = () => {
-      const needsValue = ["equals", "notEquals"].includes(operator.value);
+    const operatorSelect = document.createElement("select");
+    operatorSelect.setAttribute(
+      "aria-label",
+      `Condition operator for ${step.id}`,
+    );
+    for (const item of operators) operatorSelect.add(new Option(item, item));
+    operatorSelect.value = op;
+    operatorSelect.onchange = () => {
+      const nextOp = operatorSelect.value,
+        nextNeeds = nextOp === "equals" || nextOp === "notEquals";
       conditions.set(step.id, {
         field: selected.name,
-        operator: operator.value,
-        value: needsValue
+        operator: nextOp,
+        value: nextNeeds
           ? selected.type === "boolean"
-            ? previous?.value === "false"
+            ? active.value === "false"
               ? "false"
               : "true"
-            : (previous?.value ?? "")
+            : active.value
           : "",
       });
       render();
     };
-    value.oninput = save;
-    value.onchange = save;
-    conditions.set(step.id, {
-      field: selected.name,
-      operator: operator.value,
-      value: ["equals", "notEquals"].includes(operator.value)
-        ? selected.type === "boolean" && !value.value
-          ? "true"
-          : (previous?.value ?? value.value)
-        : "",
-    });
-    editor.append(
-      labeled("Operator", operator),
-      ...(["equals", "notEquals"].includes(operator.value)
-        ? [labeled("Expected value", value)]
-        : []),
-    );
-  };
-  field.onchange = refresh;
-  if (current?.field && params.some((p) => p.name === current.field)) refresh();
-  else if (current) conditions.delete(step.id);
+    editor.append(labeled("Operator", operatorSelect));
+    if (needsValue) {
+      let valueControl: HTMLInputElement | HTMLSelectElement;
+      if (selected.type === "boolean") {
+        const select = document.createElement("select");
+        select.add(new Option("true", "true"));
+        select.add(new Option("false", "false"));
+        select.value = valStr === "false" ? "false" : "true";
+        valueControl = select;
+      } else {
+        const inputField = document.createElement("input");
+        inputField.type = selected.type === "string" ? "text" : "number";
+        if (selected.type === "string") inputField.maxLength = 4096;
+        inputField.value = valStr;
+        valueControl = inputField;
+      }
+      valueControl.setAttribute("aria-label", `Condition value for ${step.id}`);
+      const save = () => {
+        conditions.set(step.id, {
+          field: selected.name,
+          operator: operatorSelect.value,
+          value: valueControl.value,
+        });
+      };
+      valueControl.oninput = save;
+      valueControl.onchange = save;
+      editor.append(labeled("Expected value", valueControl));
+    }
+  }
   row.append(editor);
 }
 function render() {
@@ -271,7 +287,7 @@ function render() {
     row.append(label);
     if ("locator" in s) {
       const scope = createScopeControls(scopes.get(s.id), (value) => {
-        if (!value.name) scopes.delete(s.id);
+        if (!value.role && !value.name) scopes.delete(s.id);
         else scopes.set(s.id, value);
       });
       row.append(scope.wrapper);
@@ -301,6 +317,7 @@ function render() {
           });
         else parameters.delete(s.id);
         schemaPreview();
+        renderTransforms();
       };
       field.oninput = update;
       field.onchange = () => {
@@ -318,7 +335,6 @@ function render() {
           parameters.delete(s.id);
           scopes.delete(s.id);
           conditions.delete(s.id);
-          outputActions.delete(s.id);
           render();
         }),
       );
@@ -342,7 +358,6 @@ function render() {
         parameters.delete(s.id);
         scopes.delete(s.id);
         conditions.delete(s.id);
-        outputActions.delete(s.id);
         render();
       }),
     );
@@ -387,6 +402,8 @@ function renderTransforms() {
       draft.sourceKind === "input"
         ? inputSourceNames()
         : outputSourceNames(index);
+    if (draft.sourceField && !sourceNames.includes(draft.sourceField))
+      draft.sourceField = "";
     source.add(new Option("Choose a source", ""));
     for (const field of sourceNames) source.add(new Option(field, field));
     source.value = draft.sourceField;
@@ -487,36 +504,49 @@ function addOutput(locator: Session["selections"][number], i: number) {
     scopeRole: scopeControls.role,
     scopeName: scopeControls.nameField,
   };
+  const currentScope = () => ({
+    role: currentOutput.scopeRole.value,
+    name: currentOutput.scopeName.value.trim(),
+  });
   const addWait = () => {
-    const id = `sreview_${reviewStepSequence++}`;
-    steps.push({
-      id,
-      kind: "waitForState",
-      locator: effectiveLocator(locator, {
-        role: currentOutput.scopeRole.value,
-        name: currentOutput.scopeName.value.trim(),
-      }),
-      state: waitState.value as "visible" | "hidden" | "attached" | "detached",
-      timeoutMs: 10000,
-    });
-    outputActions.set(id, currentOutput);
-    render();
+    try {
+      const scopeDraft = currentScope();
+      effectiveLocator(locator, scopeDraft);
+      $("error").textContent = "";
+      const id = `sreview_${reviewStepSequence++}`;
+      steps.push({
+        id,
+        kind: "waitForState",
+        locator,
+        state: waitState.value as
+          "visible" | "hidden" | "attached" | "detached",
+        timeoutMs: 10000,
+      });
+      if (scopeDraft.role && scopeDraft.name) scopes.set(id, scopeDraft);
+      render();
+    } catch (e) {
+      $("error").textContent = e instanceof Error ? e.message : "Invalid scope";
+    }
   };
   const addVisibleAssertion = () => {
-    const id = `sreview_${reviewStepSequence++}`;
-    steps.push({
-      id,
-      kind: "assert",
-      locator: effectiveLocator(locator, {
-        role: currentOutput.scopeRole.value,
-        name: currentOutput.scopeName.value.trim(),
-      }),
-      predicate: "visible",
-      expected: true,
-      timeoutMs: 10000,
-    });
-    outputActions.set(id, currentOutput);
-    render();
+    try {
+      const scopeDraft = currentScope();
+      effectiveLocator(locator, scopeDraft);
+      $("error").textContent = "";
+      const id = `sreview_${reviewStepSequence++}`;
+      steps.push({
+        id,
+        kind: "assert",
+        locator,
+        predicate: "visible",
+        expected: true,
+        timeoutMs: 10000,
+      });
+      if (scopeDraft.role && scopeDraft.name) scopes.set(id, scopeDraft);
+      render();
+    } catch (e) {
+      $("error").textContent = e instanceof Error ? e.message : "Invalid scope";
+    }
   };
   scopeControls.role.onchange = () => renderTransforms();
   scopeControls.nameField.onchange = () => renderTransforms();
@@ -622,6 +652,14 @@ function compile(): Workflow {
   )
     throw new Error("Use unique ASCII parameter names.");
 
+  const outputTypes = new Map<
+    string,
+    "string" | "nullableString" | "integer" | "number" | "boolean"
+  >();
+  for (const [k, prop] of Object.entries(outputSchema.properties)) {
+    outputTypes.set(k, Array.isArray(prop.type) ? "nullableString" : prop.type);
+  }
+
   const transformSteps: Step[] = transforms.map((draft, index) => {
     const field = draft.field.trim();
     if (!name.safeParse(field).success)
@@ -632,6 +670,31 @@ function compile(): Workflow {
       throw new Error("Output and derived output names must be unique.");
     if (!draft.sourceField)
       throw new Error(`Choose a source for derived output ${field}.`);
+    const sourceType =
+      draft.sourceKind === "input"
+        ? (inputSchema.properties[draft.sourceField]?.type as
+            "string" | "integer" | "number" | "boolean" | undefined)
+        : outputTypes.get(draft.sourceField);
+    if (!sourceType)
+      throw new Error(
+        `Source ${draft.sourceField} for derived output ${field} must be declared earlier.`,
+      );
+    if (
+      [
+        "trim",
+        "lowercase",
+        "uppercase",
+        "digitsOnly",
+        "parseInteger",
+        "parseNumber",
+        "parseBoolean",
+      ].includes(draft.operation) &&
+      sourceType !== "string" &&
+      sourceType !== "nullableString"
+    )
+      throw new Error(
+        `Operation ${draft.operation} for derived output ${field} requires a string source.`,
+      );
     const outputType: "string" | "integer" | "number" | "boolean" = [
       "trim",
       "lowercase",
@@ -647,6 +710,7 @@ function compile(): Workflow {
           : "boolean";
     outputSchema.properties[field] = { type: outputType };
     outputSchema.required.push(field);
+    outputTypes.set(field, outputType);
     return {
       id: `stransform${index}`,
       kind: "transform" as const,
@@ -661,19 +725,9 @@ function compile(): Workflow {
     ...steps.map((s) => {
       const raw: Record<string, unknown> = { ...s },
         parameter = parameters.get(s.id),
-        outputAction = outputActions.get(s.id),
-        scope = outputAction
-          ? {
-              role: outputAction.scopeRole.value,
-              name: outputAction.scopeName.value.trim(),
-            }
-          : scopes.get(s.id),
+        scope = scopes.get(s.id),
         condition = conditions.get(s.id);
-      if ("locator" in s)
-        raw.locator = effectiveLocator(
-          outputAction?.step.locator ?? s.locator,
-          scope,
-        );
+      if ("locator" in s) raw.locator = effectiveLocator(s.locator, scope);
       if (parameter && s.kind === "fill") raw.value = { param: parameter.name };
       if (parameter && s.kind === "select")
         raw.option = { param: parameter.name };

@@ -133,8 +133,8 @@ li code {
   display: block;
   overflow-wrap: anywhere;
 }
-li input,
-li select {
+li > input,
+li > select {
   display: inline-block;
   width: 44%;
   margin: 8px 8px 8px 0;

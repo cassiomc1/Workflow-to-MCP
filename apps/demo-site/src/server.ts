@@ -108,6 +108,47 @@ export async function startDemo(
       res.end("<button>Search</button><button>Search</button>");
       return;
     }
+    if (u.pathname === "/scoped") {
+      res.setHeader("Content-Type", "text/html");
+      res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Scoped controls · Workflow to MCP</title>${style}<main aria-label="Scoped workspace">
+      <p data-testid="loading-banner">Loading...</p>
+      <label for="note">Note</label><input id="note">
+      <div role="group" aria-label="Queue container">
+        <section role="region" aria-label="Primary queue">
+          <h2>Primary queue</h2>
+          <div role="group" aria-label="Primary card">
+            <p data-testid="row-badge">  Order #0042  </p>
+            <p data-testid="row-flag">true</p>
+            <p data-testid="row-price">19.5</p>
+            <button type="button" onclick="selectRegion('Primary queue')">Select</button>
+          </div>
+        </section>
+        <section role="region" aria-label="Archive queue">
+          <h2>Archive queue</h2>
+          <div role="group" aria-label="Archive card">
+            <p data-testid="row-badge">  Order #0099  </p>
+            <p data-testid="row-flag">false</p>
+            <p data-testid="row-price">42</p>
+            <button type="button" onclick="selectRegion('Archive queue')">Select</button>
+          </div>
+        </section>
+      </div>
+      <div role="group" aria-label="Duplicate group"><button type="button">Go</button></div>
+      <div role="group" aria-label="Duplicate group"><button type="button">Go</button></div>
+      <div role="group" aria-label="Unique group"><button type="button">Dup</button><button type="button">Dup</button></div>
+      <p data-testid="selected-out" hidden></p>
+      <script>
+        function selectRegion(name){
+          const banner=document.querySelector('[data-testid="loading-banner"]');
+          if(banner)banner.remove();
+          const out=document.querySelector('[data-testid="selected-out"]');
+          out.textContent=name+':'+document.getElementById('note').value;
+          out.hidden=false;
+        }
+      </script>
+      </main></html>`);
+      return;
+    }
     if (u.pathname === "/create") {
       res.setHeader("Content-Type", "text/html");
       res.end(

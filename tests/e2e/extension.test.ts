@@ -154,7 +154,26 @@ it("real MV3 UI capture → worker restart → parameterize → download → imp
       .getByLabel("Output mode 1", { exact: true })
       .selectOption("isVisible");
     await review
-      .getByRole("button", { name: "Wait until visible", exact: true })
+      .getByLabel("Condition input for s2", { exact: true })
+      .selectOption("ticket_id");
+    expect(
+      await review
+        .getByLabel("Condition operator for s2", { exact: true })
+        .count(),
+    ).toBe(1);
+    await review
+      .getByLabel("Condition input for s2", { exact: true })
+      .selectOption("");
+    expect(
+      await review
+        .getByLabel("Condition operator for s2", { exact: true })
+        .count(),
+    ).toBe(0);
+    await review
+      .getByLabel("Wait state for output 4", { exact: true })
+      .selectOption("visible");
+    await review
+      .getByRole("button", { name: "Add wait", exact: true })
       .last()
       .click();
     await review.locator("#risk").selectOption("read");
@@ -165,6 +184,12 @@ it("real MV3 UI capture → worker restart → parameterize → download → imp
       file = join(dir, "recording.workflow.json");
     await download.saveAs(file);
     const workflow = parseWorkflow(JSON.parse(await readFile(file, "utf8")));
+    expect(workflow.schemaVersion).toBe("1.1.0");
+    expect(
+      workflow.steps.some(
+        (s) => s.kind === "waitForState" && s.state === "visible",
+      ),
+    ).toBe(true);
     expect(workflow.inputSchema.required).toEqual(["ticket_id"]);
     expect(
       workflow.steps.some(

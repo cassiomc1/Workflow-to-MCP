@@ -80,10 +80,10 @@ export async function resolveUniqueLocator(
   return { l: target, count };
 }
 
-function conditionMatches(
+export function conditionMatches(
   condition: Condition,
-  inputs: Inputs,
-  output: Inputs,
+  inputs: Readonly<Record<string, unknown>>,
+  output: Readonly<Record<string, unknown>>,
 ): boolean {
   const values = condition.source.source === "input" ? inputs : output,
     actual = values[condition.source.field];
@@ -108,7 +108,8 @@ function transform(
   source: string | number | boolean | null | undefined,
 ): string | number | boolean {
   if (operation === "stringify") {
-    if (source === undefined) fail("TRANSFORM_INPUT_INVALID");
+    if (source === undefined || source === null)
+      fail("TRANSFORM_INPUT_INVALID");
     return String(source);
   }
   if (source === null || source === undefined || typeof source !== "string")
@@ -126,14 +127,14 @@ function transform(
       if (!/^[+-]?\d+$/.test(source)) fail("TRANSFORM_INPUT_INVALID");
       const value = Number(source);
       if (!Number.isSafeInteger(value)) fail("TRANSFORM_INPUT_INVALID");
-      return value;
+      return value === 0 ? 0 : value;
     }
     case "parseNumber": {
       if (!/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(source))
         fail("TRANSFORM_INPUT_INVALID");
       const value = Number(source);
       if (!Number.isFinite(value)) fail("TRANSFORM_INPUT_INVALID");
-      return value;
+      return value === 0 ? 0 : value;
     }
     case "parseBoolean": {
       const value = source.trim().toLowerCase();
@@ -164,7 +165,10 @@ export async function executeStep(
   step: Step,
   inputs: Inputs,
   output: Inputs,
+  redact?: (value: string) => string,
 ) {
+  const deadline = Date.now() + step.timeoutMs,
+    remaining = () => Math.max(1, deadline - Date.now());
   try {
     if (
       "when" in step &&
@@ -174,18 +178,17 @@ export async function executeStep(
       return;
     if (step.kind === "transform") {
       const values = step.source.source === "input" ? inputs : output,
-        result = transform(step.operation, values[step.source.field]);
-      if (typeof result === "string" && result.length > 4096)
+        raw = transform(step.operation, values[step.source.field]);
+      if (typeof raw === "string" && raw.length > 4096)
         fail("OUTPUT_SCHEMA_INVALID", "Output exceeds bounded length.");
+      const safe = typeof raw === "string" && redact ? redact(raw) : raw;
       output[step.field] =
-        typeof result === "string" && secretLike(result)
-          ? "[REDACTED]"
-          : result;
+        typeof safe === "string" && secretLike(safe) ? "[REDACTED]" : safe;
       return;
     }
     if (step.kind === "navigate") {
       const response = await page.goto(step.url, {
-        timeout: step.timeoutMs,
+        timeout: remaining(),
         waitUntil: "domcontentloaded",
       });
       if (response && response.status() >= 400)
@@ -197,7 +200,7 @@ export async function executeStep(
     }
     if (step.kind === "waitForURL") {
       await page.waitForURL((url) => url.href === step.urlPattern, {
-        timeout: step.timeoutMs,
+        timeout: remaining(),
       });
       return;
     }
@@ -205,21 +208,25 @@ export async function executeStep(
       waitingForAbsence =
         step.kind === "waitForState" &&
         (step.state === "hidden" || step.state === "detached"),
+      assertVisibleFalse =
+        step.kind === "assert" &&
+        step.predicate === "visible" &&
+        step.expected === false,
       { l, count: initialCount } = await resolveUniqueLocator(
         page,
         step.locator,
-        step.timeoutMs,
-        allowMissing || waitingForAbsence,
-      ),
-      options = { timeout: step.timeoutMs };
+        remaining(),
+        allowMissing || waitingForAbsence || assertVisibleFalse,
+      );
     if (step.kind === "waitForState") {
       if (!l) return;
-      await l.waitFor({ state: step.state, ...options });
+      await l.waitFor({ state: step.state, timeout: remaining() });
       if ((await l.count()) > 1) fail("LOCATOR_AMBIGUOUS");
       return;
     }
-    if (!l && step.kind !== "extract") fail("LOCATOR_NOT_FOUND");
-    const target = l!;
+    if (!l && step.kind !== "extract" && !assertVisibleFalse)
+      fail("LOCATOR_NOT_FOUND");
+    const target = l;
     let count = initialCount;
     if (
       target &&
@@ -232,43 +239,52 @@ export async function executeStep(
     }
     switch (step.kind) {
       case "click":
-        await target.click(options);
+        await target!.click({ timeout: remaining() });
         break;
       case "fill":
-        await target.fill(resolveValue(step.value, inputs), options);
+        await target!.fill(resolveValue(step.value, inputs), {
+          timeout: remaining(),
+        });
         break;
       case "select":
-        await target.selectOption(resolveValue(step.option, inputs), options);
+        await target!.selectOption(resolveValue(step.option, inputs), {
+          timeout: remaining(),
+        });
         break;
       case "check":
-        await target.setChecked(step.checked, options);
+        await target!.setChecked(step.checked, { timeout: remaining() });
         break;
       case "press":
-        await target.press(step.key, options);
+        await target!.press(step.key, { timeout: remaining() });
         break;
       case "waitForVisible":
-        await target.waitFor({ state: "visible", ...options });
+        await target!.waitFor({ state: "visible", timeout: remaining() });
         break;
       case "assert": {
         const actual =
           step.predicate === "visible"
-            ? await target.isVisible()
-            : (await target.textContent(options))?.trim();
+            ? count > 0 && target
+              ? await target.isVisible()
+              : false
+            : (await target!.textContent({ timeout: remaining() }))?.trim();
         if (actual !== step.expected) fail("ASSERTION_FAILED");
         break;
       }
       case "extract": {
         let value: string | number | boolean | null;
         if (step.mode === "isVisible")
-          value = count > 0 && (await target.isVisible());
+          value = count > 0 && target ? await target.isVisible() : false;
         else if (step.mode === "count") value = count;
         else
-          value = count
-            ? ((await target.textContent(options))?.trim() ?? null)
-            : null;
+          value =
+            count && target
+              ? ((await target.textContent({ timeout: remaining() }))?.trim() ??
+                null)
+              : null;
         if (typeof value === "string") {
           if (value.length > 4096)
             fail("OUTPUT_SCHEMA_INVALID", "Output exceeds bounded length.");
+          if (redact) value = redact(value);
           if (secretLike(value)) value = "[REDACTED]";
           // Keep text unchanged until the runner has removed known credentials.
         }
@@ -281,6 +297,12 @@ export async function executeStep(
       e.stepId = step.id;
       throw e;
     }
+    if (e instanceof Error && /strict mode violation/i.test(e.message))
+      throw new WorkflowError(
+        "LOCATOR_AMBIGUOUS",
+        "Locator matched more than one element.",
+        step.id,
+      );
     throw new WorkflowError(
       "EXECUTION_TIMEOUT",
       "Step could not complete within its deadline.",

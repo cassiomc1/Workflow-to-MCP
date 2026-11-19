@@ -112,14 +112,14 @@ export async function checkAuthentication(page: Page, profile: AuthProfile) {
     throw error;
   }
   if (!locator) fail("AUTH_CHECK_FAILED");
-  await locator
-    .waitFor({ state: "visible", timeout: 5000 })
-    .catch(() =>
-      fail(
-        "AUTHENTICATION_REQUIRED",
-        "The authenticated marker is missing. Log in again.",
-      ),
+  await locator.waitFor({ state: "visible", timeout: 5000 }).catch(async () => {
+    if ((await locator.count()) > 1)
+      fail("AUTH_CHECK_FAILED", "The authenticated marker must be unique.");
+    fail(
+      "AUTHENTICATION_REQUIRED",
+      "The authenticated marker is missing. Log in again.",
     );
+  });
   if ((await locator.count()) !== 1) fail("AUTH_CHECK_FAILED");
 }
 function loginWorkflow(config: AuthConfig): Workflow {
