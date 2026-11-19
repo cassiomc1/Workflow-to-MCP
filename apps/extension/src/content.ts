@@ -122,6 +122,7 @@ if (!globalState[marker]) {
         return;
       }
       if (!element.matches('button,a,[role="button"]')) return;
+      if (e.detail === 0 && !element.contains(document.activeElement)) return;
       const locator = locatorFor(element);
       if (locator)
         record({ id: "stemp", kind: "click", locator, timeoutMs: 10000 });

@@ -190,6 +190,7 @@ it("real MV3 UI capture → worker restart → parameterize → download → imp
         (s) => s.kind === "waitForState" && s.state === "visible",
       ),
     ).toBe(true);
+    expect(workflow.steps.some((s) => s.kind === "click")).toBe(false);
     expect(workflow.inputSchema.required).toEqual(["ticket_id"]);
     expect(
       workflow.steps.some(
