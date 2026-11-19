@@ -159,5 +159,82 @@ describe.skipIf(process.platform === "win32")(
         await s.close();
       }
     });
+    it("redacts extracted credentials before subsequent transform steps run", async () => {
+      const s = await authenticatedSetup();
+      try {
+        const profile = await loginFixture(s);
+        const w = {
+          ...s.stored.workflow,
+          schemaVersion: "1.1.0" as const,
+          version: "1.1.3",
+          entrypoint: s.demo.origin + "/auth/check",
+          inputSchema: {
+            type: "object" as const,
+            properties: {},
+            required: [],
+            additionalProperties: false as const,
+          },
+          outputSchema: {
+            type: "object" as const,
+            properties: {
+              raw_sid: { type: "string" as const },
+              upper_sid: { type: "string" as const },
+              sid_digits: { type: "string" as const },
+            },
+            required: ["raw_sid", "upper_sid", "sid_digits"],
+            additionalProperties: false as const,
+          },
+          steps: [
+            {
+              id: "s1",
+              kind: "extract" as const,
+              locator: { strategy: "testId" as const, value: "auth-secret" },
+              field: "raw_sid",
+              mode: "textContent" as const,
+              allowMissing: false,
+              timeoutMs: 2000,
+            },
+            {
+              id: "s2",
+              kind: "transform" as const,
+              source: { source: "output" as const, field: "raw_sid" },
+              operation: "uppercase" as const,
+              field: "upper_sid",
+              timeoutMs: 1000,
+            },
+            {
+              id: "s3",
+              kind: "transform" as const,
+              source: { source: "output" as const, field: "raw_sid" },
+              operation: "digitsOnly" as const,
+              field: "sid_digits",
+              timeoutMs: 1000,
+            },
+          ],
+        };
+        const stored = s.registry.import(w);
+        s.registry.trust(w.slug, stored.hash, w.version);
+        s.registry.bindAuth(stored, profile.config.id);
+        const result = await runWorkflow(
+          s.registry,
+          stored,
+          {},
+          { verification: true },
+        );
+        expect(result.data).toEqual({
+          raw_sid: "[REDACTED]",
+          upper_sid: "[REDACTED]",
+          sid_digits: "",
+        });
+        for (const secret of s.demo.authentication.secrets()) {
+          expect(JSON.stringify(result.data)).not.toContain(secret);
+          expect(JSON.stringify(result.data)).not.toContain(
+            secret.toUpperCase(),
+          );
+        }
+      } finally {
+        await s.close();
+      }
+    });
   },
 );

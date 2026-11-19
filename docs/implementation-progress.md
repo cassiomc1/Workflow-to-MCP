@@ -183,8 +183,18 @@ No new dependency was added, no production credentials were used, and no public 
 
 ## Workflow format 1.1.0 — declarative actions and local write preview
 
-Date: 2026-10-30. Status: IMPLEMENTED IN SOURCE; build/runtime validation pending.
+Date: 2026-10-30 (initial source); reviewed, hardened, and locally validated on 2026-11-19 (America/Sao_Paulo). Status: PASS (local build/test/package gate on macOS ARM64; external CI, interactive approval PTY walkthrough and public-release gates pending).
 
 Added a backward-compatible 1.1.0 workflow format while retaining 1.0.0 imports. The review UI can add per-step typed input conditions, fixed scalar transforms, semantic locator scopes, and waits for visible/hidden/attached/detached state. The runner checks uniqueness for each scope and target. Capture messages and persisted recorder sessions remain restricted to legacy recorder actions. Local write confirmation now previews the entry point, origins, identity, exact inputs and planned steps; approval remains exact-input, local, single-use and unavailable to MCP callers.
 
-No formatter, typecheck, build, unit, integration, browser or MCP command was run for this change. Treat 1.1.0 as unverified until those checks and an approval prompt walkthrough are performed.
+Review & hardening (2026-11-19):
+- Fixed the stale schema test rejecting `"1.1.0"` and hardened `workflow-schema` (non-string `schemaVersion` fail-closed handling, unserializable input handling, impossible property bounds, and `assert` predicate/expected/secret checks) and `privacy.ts` regex deduplication.
+- Fixed 1.1.0 runtime behavior in `compiler` and `runner`: shared `conditionMatches` pre-browser check for conditional optional parameters and input-sourced transforms, `stringify` null rejection, `-0` normalization in numeric parsers, unified per-step deadline propagation, detached `assert` (`visible: false`) support, `LOCATOR_AMBIGUOUS` classification on Playwright strict-mode errors, pre-transform credential redaction of extracted outputs, and unique-marker ambiguity checking on authentication timeout.
+- Extracted CLI approval prompt formatting into `packages/cli/src/approval.ts` with input-condition evaluation preview (`will run` / `will skip`), terminal control/BiDi escaping, and pre-prompt approvability enforcement.
+- Fixed review UI state synchronization and layout in `apps/extension/src/review.ts` and `apps/extension/style.css` (half-filled scope validation, `oninput` scope tracking, duplicate-free `conditionEditor`, editable step scopes for added waits/assertions, transform source validation/reset, and `li >` direct-child rules); fixed `docs/architecture.svg` clipping/routing/connectors and bundled it in `package.json`.
+
+Local validation observed on macOS ARM64 (Node `26.13.1`, Chromium `156.0.8078.4`):
+- `npm run format:check`, `npm run lint` (`--max-warnings 0`), `npm run typecheck`, `npm run build`, and `npm run audit:licenses` (5 production packages): all exited `0`.
+- `npm test`: **11/11 test files passed, 66 tests passed, 1 Windows-only guard test skipped** (covers 1.0.0/1.1.0 schema contracts, approval preview & escaping, SQLite registry & migrations, auth store & proxy cancellation, MV3 extension E2E + review screenshot inspection in `test-results/extension-review.png`, authenticated replay/MCP/transform redaction, scoped locators/waits/conditions/transforms, and policy/approval security regressions).
+- `npm run package:smoke` and `node dist/cli.js doctor`: clean tarball install, doctor (`integrity_check: ok`), import/trust/verify/publish, and real stdio MCP discovery/invocations passed (`0`).
+- Pending before public release: interactive PTY terminal `approval grant` walkthrough for 0.3.0, `npm run benchmark` rerun on 0.3.0, hosted Linux/macOS/Windows CI execution, independent clean-machine/security reviewer signoff, MCP Inspector / third-party host check, and Chrome Web Store submission.

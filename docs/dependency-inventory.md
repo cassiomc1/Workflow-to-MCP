@@ -12,8 +12,8 @@ Resolved from the public npm registry 2026-10-29, pinned in package.json/pnpm-lo
 | Chromium (Playwright revision 1248) | 156.0.8078.4 | browser distribution notices |
 | Zod | 4.6.7 | MIT |
 | TypeScript | 6.0.3 | Apache-2.0 |
-| typescript-eslint | 8.72.1 | MIT |
-| ESLint | 10.13.0 | MIT |
+| typescript-eslint | 8.73.0 | MIT |
+| ESLint | 10.15.0 | MIT |
 | Vitest | 5.0.5 | MIT |
 | esbuild | 0.28.2 | MIT |
 | Prettier | 3.9.10 | MIT |

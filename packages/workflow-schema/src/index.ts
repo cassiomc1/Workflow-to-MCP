@@ -49,7 +49,18 @@ const contractSchemaInternal = z
     additionalProperties: z.literal(false),
   })
   .superRefine((s, ctx) => {
+    const invalidConstraints = Object.values(s.properties).some(
+      (p) =>
+        (p.minLength !== undefined &&
+          p.maxLength !== undefined &&
+          p.minLength > p.maxLength) ||
+        (p.minimum !== undefined &&
+          p.maximum !== undefined &&
+          p.minimum > p.maximum) ||
+        (p.enum !== undefined && p.type !== "string" && !Array.isArray(p.type)),
+    );
     if (
+      invalidConstraints ||
       Object.keys(s.properties).length > 30 ||
       new Set(s.required).size !== s.required.length ||
       s.required.some((k) => !Object.hasOwn(s.properties, k))
@@ -436,6 +447,14 @@ function refineWorkflow(w: WorkflowShape, ctx: z.RefinementCtx) {
       sensitiveName.test(JSON.stringify(s.locator))
     )
       issue("Sensitive locator names are forbidden.");
+    if (s.kind === "assert") {
+      if (s.predicate === "visible" && typeof s.expected !== "boolean")
+        issue("Visible assertions require a boolean expected value.");
+      if (s.predicate === "textEquals" && typeof s.expected !== "string")
+        issue("Text assertions require a string expected value.");
+      if (typeof s.expected === "string" && secretLike(s.expected))
+        issue("Sensitive assertion values are forbidden.");
+    }
 
     if ("when" in s && s.when) {
       const type = sourceType(s.when.source, w.inputSchema, outputs);
@@ -527,10 +546,17 @@ export function parseWorkflow(input: unknown): Workflow {
     input &&
     typeof input === "object" &&
     "schemaVersion" in input &&
-    !["1.0.0", "1.1.0"].includes(String(input.schemaVersion))
+    (typeof input.schemaVersion !== "string" ||
+      !["1.0.0", "1.1.0"].includes(input.schemaVersion))
   )
     fail("WORKFLOW_SCHEMA_UNSUPPORTED");
-  if (JSON.stringify(input)?.length > 256000)
+  let serialized: string | undefined;
+  try {
+    serialized = JSON.stringify(input);
+  } catch {
+    fail("WORKFLOW_INVALID", "Workflow is not serializable.");
+  }
+  if ((serialized?.length ?? 0) > 256000)
     fail("WORKFLOW_INVALID", "Workflow exceeds size limit.");
   const result = workflowSchema.safeParse(input);
   if (!result.success)

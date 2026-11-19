@@ -108,6 +108,47 @@ export async function startDemo(
       res.end("<button>Search</button><button>Search</button>");
       return;
     }
+    if (u.pathname === "/scoped") {
+      res.setHeader("Content-Type", "text/html");
+      res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Scoped controls · Workflow to MCP</title>${style}<main aria-label="Scoped workspace">
+      <p data-testid="loading-banner">Loading...</p>
+      <label for="note">Note</label><input id="note">
+      <div role="group" aria-label="Queue container">
+        <section role="region" aria-label="Primary queue">
+          <h2>Primary queue</h2>
+          <div role="group" aria-label="Primary card">
+            <p data-testid="row-badge">  Order #0042  </p>
+            <p data-testid="row-flag">true</p>
+            <p data-testid="row-price">19.5</p>
+            <button type="button" onclick="selectRegion('Primary queue')">Select</button>
+          </div>
+        </section>
+        <section role="region" aria-label="Archive queue">
+          <h2>Archive queue</h2>
+          <div role="group" aria-label="Archive card">
+            <p data-testid="row-badge">  Order #0099  </p>
+            <p data-testid="row-flag">false</p>
+            <p data-testid="row-price">42</p>
+            <button type="button" onclick="selectRegion('Archive queue')">Select</button>
+          </div>
+        </section>
+      </div>
+      <div role="group" aria-label="Duplicate group"><button type="button">Go</button></div>
+      <div role="group" aria-label="Duplicate group"><button type="button">Go</button></div>
+      <div role="group" aria-label="Unique group"><button type="button">Dup</button><button type="button">Dup</button></div>
+      <p data-testid="selected-out" hidden></p>
+      <script>
+        function selectRegion(name){
+          const banner=document.querySelector('[data-testid="loading-banner"]');
+          if(banner)banner.remove();
+          const out=document.querySelector('[data-testid="selected-out"]');
+          out.textContent=name+':'+document.getElementById('note').value;
+          out.hidden=false;
+        }
+      </script>
+      </main></html>`);
+      return;
+    }
     if (u.pathname === "/create") {
       res.setHeader("Content-Type", "text/html");
       res.end(
@@ -124,8 +165,8 @@ export async function startDemo(
     }
     res.setHeader("Content-Type", "text/html");
     res.end(`<!doctype html><html lang="en"><meta charset="utf-8"><title>Demo CRM · Workflow to MCP</title>${style}<main><small>WORKFLOW TO MCP / SYNTHETIC CRM</small><h1>Find a support ticket.</h1><p>A local fixture with no private accounts or production data.</p><form id="lookup"><label for="ticket">Ticket ID</label><input id="ticket" name="ticket_id" autocomplete="off" placeholder="TICKET-1001"><button>Search</button></form><div id="results" aria-live="polite" hidden></div><nav><a href="/create">Create a synthetic ticket</a> · <a href="/secrets">Privacy fixture</a></nav></main><script>
-    const form=document.getElementById('lookup');let seq=${pageVersion++};
-    form.onsubmit=async e=>{e.preventDefault();const id=document.getElementById('ticket').value;const data=await(await fetch('/api/ticket?id='+encodeURIComponent(id))).json();const result=document.getElementById('results');result.replaceChildren();result.removeAttribute('data-testid');const delay=Number(new URLSearchParams(location.search).get('delay')||${options.variation ? (pageVersion * 37 + (options.seed ?? 0)) % 180 : 0});await new Promise(r=>setTimeout(r,delay));const wrapper=document.createElement(seq++%2?'section':'div');wrapper.className='variant-'+seq;if(data){const found=document.createElement('h2');found.dataset.testid='ticket-found';found.textContent='Ticket found';const status=document.createElement('p');status.dataset.testid='ticket-status';status.textContent=data.status;const summary=document.createElement('p');summary.dataset.testid='ticket-summary';summary.textContent=data.summary;wrapper.append(found,status,summary)}else wrapper.textContent='No matching ticket';result.append(wrapper);result.dataset.testid='ticket-results';result.hidden=false;};
+    const form=document.getElementById('lookup');let seq=${pageVersion++},reqId=0;
+    form.onsubmit=async e=>{e.preventDefault();const current=++reqId;const result=document.getElementById('results');result.hidden=true;result.removeAttribute('data-testid');result.replaceChildren();const id=document.getElementById('ticket').value;const data=await(await fetch('/api/ticket?id='+encodeURIComponent(id))).json();const delay=Number(new URLSearchParams(location.search).get('delay')||${options.variation ? (pageVersion * 37 + (options.seed ?? 0)) % 180 : 0});await new Promise(r=>setTimeout(r,delay));if(current!==reqId)return;const wrapper=document.createElement(seq++%2?'section':'div');wrapper.className='variant-'+seq;if(data){const found=document.createElement('h2');found.dataset.testid='ticket-found';found.textContent='Ticket found';const status=document.createElement('p');status.dataset.testid='ticket-status';status.textContent=data.status;const summary=document.createElement('p');summary.dataset.testid='ticket-summary';summary.textContent=data.summary;wrapper.append(found,status,summary)}else wrapper.textContent='No matching ticket';result.append(wrapper);result.dataset.testid='ticket-results';result.hidden=false;};
     </script></html>`);
   });
   await new Promise<void>((resolve, reject) => {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { userInfo } from "node:os";
-import { executeStep } from "../../compiler/src/index.js";
+import { conditionMatches, executeStep } from "../../compiler/src/index.js";
 import { validateContract } from "../../workflow-schema/src/index.js";
 import { Registry, type StoredWorkflow } from "../../registry/src/index.js";
 import { fail, safeError, WorkflowError } from "../../shared/src/index.js";
@@ -52,9 +52,24 @@ export async function runWorkflow(
           "SECRET_NOT_CONFIGURED",
           "Secret providers are not enabled in this release.",
         );
-      if (inputs[value.param] === undefined || inputs[value.param] === null)
+      const mustRun =
+        !("when" in step) ||
+        !step.when ||
+        (step.when.source.source === "input" &&
+          conditionMatches(step.when, inputs, {}));
+      if (
+        mustRun &&
+        (inputs[value.param] === undefined || inputs[value.param] === null)
+      )
         fail("PARAMETER_INVALID");
     }
+    if (
+      step.kind === "transform" &&
+      step.source.source === "input" &&
+      (inputs[step.source.field] === undefined ||
+        inputs[step.source.field] === null)
+    )
+      fail("TRANSFORM_INPUT_INVALID");
   }
   const profile = registry.authBinding(current.hash),
     authDigest = registry.authDigest(current.hash);
@@ -164,6 +179,9 @@ export async function runWorkflow(
         "NAVIGATION_FAILED",
         "The approved site returned an unsuccessful HTTP status.",
       );
+    const redactInitial = originalState
+      ? credentialRedactor(originalState)
+      : undefined;
     for (const step of w.steps) {
       assertAccess();
       if (session.error()) throw session.error();
@@ -174,7 +192,7 @@ export async function runWorkflow(
         ["click", "press", "check", "select", "fill"].includes(step.kind)
       )
         submitted = true;
-      await executeStep(session.page, step, inputs, output);
+      await executeStep(session.page, step, inputs, output, redactInitial);
       if (session.error()) throw session.error();
       await authorizeUrl(session.page.url(), w, policy);
       stepsCompleted++;
@@ -209,9 +227,9 @@ export async function runWorkflow(
           ...refreshed.session,
         ],
       };
-      const redactCurrent = credentialRedactor(merged),
-        redactPrevious = credentialRedactor(originalState);
-      const redact = (value: string) => redactCurrent(redactPrevious(value));
+      const redactCurrent = credentialRedactor(merged);
+      const redact = (value: string) =>
+        redactCurrent(redactInitial ? redactInitial(value) : value);
       for (const [field, value] of Object.entries(output))
         if (typeof value === "string") output[field] = redact(value);
       await store.write(profile.config.id, profile.generation, merged);

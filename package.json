@@ -20,6 +20,7 @@
     "PRIVACY.md",
     "SECURITY.md",
     "docs/*.md",
+    "docs/architecture.svg",
     "docs/legal",
     "docs/adrs"
   ],
@@ -53,8 +54,8 @@
     "@types/chrome": "0.3.7",
     "@types/node": "26.6.6",
     "esbuild": "0.28.2",
-    "eslint": "10.13.0",
-    "typescript-eslint": "8.72.1",
+    "eslint": "10.15.0",
+    "typescript-eslint": "8.73.0",
     "prettier": "3.9.10",
     "typescript": "6.0.3",
     "vitest": "5.0.5"
